@@ -16,7 +16,7 @@
         }
 
         #game-container {
-            position: fixed; /* Fixed position instead of relative */
+            position: fixed;
             width: 100%;
             height: 100%;
             background-image: url('field.jpg');
@@ -48,8 +48,16 @@
             z-index: 5;
         }
 
+        #zzz {
+            position: absolute;
+            width: 100%;
+            height: 100px; /* Adjust height based on your zzz.gif */
+            left: 0;
+            z-index: 2;
+        }
+
         canvas {
-            position: fixed; /* Fixed position to prevent movement */
+            position: fixed;
             top: 0;
             left: 0;
             background: transparent;
@@ -60,10 +68,24 @@
         
         .person {
             position: absolute;
-            bottom: 150px; /* Even higher position to ensure visibility */
+            bottom: 150px;
             width: 50px;
             height: 60px;
             z-index: 3;
+        }
+
+        #game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 40px;
+            color: red;
+            background: rgba(255,255,255,0.8);
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 20;
+            display: none;
         }
 
         /* Disable all text selection to prevent zoom issues */
@@ -81,7 +103,9 @@
     <div id="game-container">
         <div id="score">Score: 0</div>
         <img id="bird" src="Bird-A1.gif" alt="bird">
+        <img id="zzz" src="zzz.gif" alt="zzz">
         <canvas id="gameCanvas"></canvas>
+        <div id="game-over">Game Over</div>
     </div>
 
     <script>
@@ -116,6 +140,8 @@
         resizeGame();
 
         const birdElement = document.getElementById("bird");
+        const zzzElement = document.getElementById("zzz");
+        const gameOverElement = document.getElementById("game-over");
         let birdX = GAME_WIDTH / 2 - 30;
         let birdY = 30;
         const birdSpeed = 8;
@@ -127,6 +153,9 @@
         let canDropPoop = true;
         let gameTime = 0;
         let spawnRate = 0.01;
+        let zzzY = GAME_HEIGHT; // Start at the bottom
+        let zzzSpeed = 1; // Initial speed, increases with level
+        let gameOver = false;
 
         // Add touch control for mobile
         document.addEventListener("keydown", e => keys[e.key] = true);
@@ -134,13 +163,14 @@
         
         // Handle click/touch to drop poop
         document.addEventListener("click", function(e) {
-            if (canDropPoop) {
+            if (canDropPoop && !gameOver) {
                 dropPoop();
             }
         });
         
         document.addEventListener("touchstart", function(e) {
             e.preventDefault();
+            if (gameOver) return;
             const touchX = e.touches[0].clientX;
             
             // Left side of screen moves bird left
@@ -162,6 +192,7 @@
         });
 
         function moveBird() {
+            if (gameOver) return;
             if (keys["ArrowLeft"] && birdX > 0) birdX -= birdSpeed;
             if (keys["ArrowRight"] && birdX < GAME_WIDTH - 60) birdX += birdSpeed;
 
@@ -208,11 +239,15 @@
                         }
                         people.splice(j, 1);
                         hitSomeone = true;
+                        poops.splice(i, 1); // Remove poop on hit
+                        zzzY += 50; // Lower zzz.gif by 50 pixels
+                        if (zzzY > GAME_HEIGHT) zzzY = GAME_HEIGHT; // Keep within bounds
+                        zzzElement.style.bottom = (GAME_HEIGHT - zzzY) + "px";
                         break;
                     }
                 }
                 
-                if (hitSomeone || poops[i].y > GAME_HEIGHT) {
+                if (!hitSomeone && poops[i].y > GAME_HEIGHT) {
                     poops.splice(i, 1);
                 }
             }
@@ -222,11 +257,31 @@
             }
         }
 
+        function moveZzz() {
+            if (gameOver) return;
+            const difficultyLevel = Math.floor(gameTime / 10000) + 1;
+            zzzSpeed = 1 + difficultyLevel * 0.5; // Increase speed with level
+            zzzY -= zzzSpeed; // Move up
+            if (zzzY < -100) zzzY = -100; // Prevent going too far up
+            zzzElement.style.bottom = (GAME_HEIGHT - zzzY) + "px";
+            
+            // Check collision with bird
+            const birdRect = birdElement.getBoundingClientRect();
+            const zzzRect = zzzElement.getBoundingClientRect();
+            if (birdRect.bottom > zzzRect.top && 
+                birdRect.top < zzzRect.bottom && 
+                birdRect.right > zzzRect.left && 
+                birdRect.left < zzzRect.right) {
+                gameOver = true;
+                gameOverElement.style.display = "block";
+            }
+        }
+
         function spawnPeople() {
             spawnRate = Math.min(0.04, 0.01 + (gameTime / 8000) * 0.03);
             const maxPeople = 4 + Math.floor(gameTime / 12000);
             
-            if (people.length < maxPeople && gameTime > 1000) {
+            if (people.length < maxPeople && gameTime > 1000 && !gameOver) {
                 if (Math.random() < spawnRate) {
                     try {
                         const personLeft = document.createElement('img');
@@ -270,6 +325,7 @@
         }
 
         function movePeople() {
+            if (gameOver) return;
             for (let i = people.length - 1; i >= 0; i--) {
                 people[i].x += people[i].speed;
                 if (people[i].element) {
@@ -347,6 +403,10 @@
             score = 0;
             gameTime = 0;
             canDropPoop = true;
+            zzzY = GAME_HEIGHT; // Reset zzz.gif to bottom
+            zzzElement.style.bottom = "0px";
+            gameOver = false;
+            gameOverElement.style.display = "none";
             
             birdX = GAME_WIDTH / 2 - 30;
             birdElement.style.left = birdX + "px";
@@ -373,6 +433,8 @@
         }
 
         function gameLoop() {
+            if (gameOver) return;
+
             gameTime += 16;
             
             try {
@@ -380,6 +442,7 @@
                 movePoops();
                 movePeople();
                 spawnPeople();
+                moveZzz();
                 draw();
                 
                 const scoreDiv = document.getElementById("score");
@@ -387,7 +450,7 @@
                 scoreDiv.innerText = `Score: ${score} | Level: ${difficultyLevel}`;
                 
                 if (gameTime % 5000 === 0) {
-                    console.log(`Game state: ${people.length} people, ${poops.length} poops`);
+                    console.log(`Game state: ${people.length} people, ${poops.length} poops, zzzY: ${zzzY}`);
                     cleanupStuckPeople();
                 }
                 
@@ -403,6 +466,7 @@
         function initGame() {
             birdElement.style.left = birdX + "px";
             birdElement.style.top = birdY + "px";
+            zzzElement.style.bottom = "0px"; // Start zzz.gif at the bottom
             
             // Add restart button
             addRestartButton();
