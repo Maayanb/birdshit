@@ -260,7 +260,7 @@
         function moveelec() {
             if (gameOver) return;
             const difficultyLevel = Math.floor(gameTime / 10000) + 1;
-            elecSpeed = 0.5 + difficultyLevel * 0.2; // Slower speed increase (was 0.5)
+            elecSpeed = 0.5 + difficultyLevel * 0.2; // Slower speed increase
             elecY -= elecSpeed; // Move up
             if (elecY < -50) elecY = -50; // Adjusted to match thinner height
             elecElement.style.bottom = (GAME_HEIGHT - elecY) + "px";
@@ -273,12 +273,12 @@
             const elecCenterX = elecRect.left + elecRect.width / 2;
             const elecCenterY = elecRect.top + elecRect.height / 2;
 
-            // Distance threshold for "middle" collision (e.g., 30px)
+            // Distance threshold for "middle" collision (30px)
             const distance = Math.sqrt(
                 Math.pow(birdCenterX - elecCenterX, 2) + 
                 Math.pow(birdCenterY - elecCenterY, 2)
             );
-            if (distance < 30) { // Adjust threshold as needed
+            if (distance < 30) {
                 gameOver = true;
                 gameOverElement.style.display = "block";
             }
@@ -395,6 +395,7 @@
         }
 
         function restartGame() {
+            // This function is still here but won't be called since we reload the page
             for (let i = people.length - 1; i >= 0; i--) {
                 if (people[i].element && people[i].element.parentNode) {
                     try {
@@ -432,8 +433,9 @@
             restartButton.style.borderRadius = "5px";
             restartButton.style.cursor = "pointer";
             
+            // Changed to reload the page instead of calling restartGame()
             restartButton.onclick = function() {
-                restartGame();
+                location.reload();
             };
             
             gameContainer.appendChild(restartButton);
