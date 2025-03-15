@@ -1,48 +1,4 @@
-// Add a restart function to handle situations where game gets stuck
-        function restartGame() {
-            // Clear all existing people
-            for (let i = people.length - 1; i >= 0; i--) {
-                if (people[i].element && people[i].element.parentNode) {
-                    try {
-                        gameContainer.removeChild(people[i].element);
-                    } catch (e) {
-                        console.log("Error removing person during restart:", e);
-                    }
-                }
-            }
-            
-            // Reset game state
-            people = [];
-            poops = [];
-            score = 0;
-            gameTime = 0;
-            canDropPoop = true;
-            
-            // Reset bird position
-            birdX = GAME_WIDTH / 2 - 30;
-            birdElement.style.left = birdX + "px";
-        }
-        
-        // Add a restart button to handle stuck game
-        function addRestartButton() {
-            const restartButton = document.createElement('button');
-            restartButton.innerText = "🔄 Restart";
-            restartButton.style.position = "absolute";
-            restartButton.style.bottom = "10px";
-            restartButton.style.right = "10px";
-            restartButton.style.zIndex = "100";
-            restartButton.style.padding = "8px";
-            restartButton.style.backgroundColor = "rgba(255,255,255,0.8)";
-            restartButton.style.border = "none";
-            restartButton.style.borderRadius = "5px";
-            restartButton.style.cursor = "pointer";
-            
-            restartButton.onclick = function() {
-                restartGame();
-            };
-            
-            gameContainer.appendChild(restartButton);
-        }<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -174,57 +130,50 @@
         let keys = {};
         let canDropPoop = true;
         let gameTime = 0;
-        let spawnRate = 0.01; // Starting spawn rate - slightly higher
+        let spawnRate = 0.01;
 
-        // Create audio elements for sound
-        const fartSound = document.createElement('audio');
-        fartSound.id = 'fartSound';
-        fartSound.src = 'fart.mp3';
-        fartSound.preload = 'auto';
-        document.body.appendChild(fartSound);
+        // Sound system that plays a short fart sound
+        const fartSound = document.getElementById('fartSound');
         
-        // Create a second audio element with an inline base64 encoded audio
-        // This is a very short simple sound that should work regardless of file availability
-        const fartSound2 = document.createElement('audio');
-        fartSound2.id = 'fartSound2';
-        fartSound2.src = 'data:audio/mpeg;base64,//uQxAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAAFAAAGUACFhYWFhYWFhYWFhYWFhYWFhYWFvb29vb29vb29vb29vb29vb29vb3p6enp6enp6enp6enp6enp6enp6f////////////////////////////////8AAAA8TEFNRTMuOTlyAc0AAAAAAAAAABSAJAJAQgAAgAAAA+gZtdwzAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//sQxAADwAABpAAAACAAADSAAAAETEFNRTMuOTkuNVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVU=';
-        document.body.appendChild(fartSound2);
+        // Create a simple but effective backup sound system
+        const MAX_SOUNDS = 3; // Limit to 3 sounds max
+        const soundPool = [];
         
-        // Add a third option - using the Web Audio API which works better on iOS
-        let audioContext;
-        let fartBuffer;
+        // Create a small pool of audio elements as backup
+        for (let i = 0; i < MAX_SOUNDS; i++) {
+            const sound = new Audio();
+            sound.src = 'fart.mp3';
+            sound.volume = 0.8;
+            soundPool.push(sound);
+        }
         
-        // Initialize Web Audio API
-        try {
-            window.AudioContext = window.AudioContext || window.webkitAudioContext;
-            audioContext = new AudioContext();
-            
-            // Create a simple beep sound as fallback
-            const createBeepSound = () => {
-                const oscillator = audioContext.createOscillator();
-                const gainNode = audioContext.createGain();
+        let soundIndex = 0; // Keep track of which sound to use next
+        
+        // Simple function to play the fart sound
+        function playFartSound() {
+            // Try the main sound element first
+            if (fartSound) {
+                fartSound.currentTime = 0;
+                fartSound.play().catch(err => {
+                    console.log("Main sound failed, using backup");
+                    
+                    // If that fails, use the backup sound pool
+                    const backupSound = soundPool[soundIndex];
+                    backupSound.currentTime = 0;
+                    backupSound.play().catch(e => console.log("Backup sound failed too"));
+                    
+                    // Rotate through the sound pool
+                    soundIndex = (soundIndex + 1) % MAX_SOUNDS;
+                });
+            } else {
+                // If main sound isn't available, just use the pool
+                const backupSound = soundPool[soundIndex];
+                backupSound.currentTime = 0;
+                backupSound.play().catch(e => console.log("Sound failed"));
                 
-                oscillator.connect(gainNode);
-                gainNode.connect(audioContext.destination);
-                
-                oscillator.type = 'sine';
-                oscillator.frequency.value = 200;
-                gainNode.gain.value = 0.5;
-                
-                return { oscillator, gainNode };
-            };
-            
-            window.playBeep = () => {
-                const { oscillator, gainNode } = createBeepSound();
-                oscillator.start();
-                
-                // Short sound
-                setTimeout(() => {
-                    oscillator.stop();
-                }, 200);
-            };
-        } catch (e) {
-            console.log("Web Audio API not supported:", e);
+                // Rotate through the sound pool
+                soundIndex = (soundIndex + 1) % MAX_SOUNDS;
+            }
         }
 
         // Add touch control for mobile
@@ -275,50 +224,6 @@
             
             // Update bird position
             birdElement.style.left = birdX + "px";
-        }
-
-        // Sound system that plays a short fart sound
-        const fartSound = document.getElementById('fartSound');
-        
-        // Create a simple but effective backup sound system
-        const MAX_SOUNDS = 3; // Limit to 3 sounds max
-        const soundPool = [];
-        
-        // Create a small pool of audio elements as backup
-        for (let i = 0; i < MAX_SOUNDS; i++) {
-            const sound = new Audio();
-            sound.src = 'fart.mp3';
-            sound.volume = 0.8;
-            soundPool.push(sound);
-        }
-        
-        let soundIndex = 0; // Keep track of which sound to use next
-        
-        // Simple function to play the fart sound
-        function playFartSound() {
-            // Try the main sound element first
-            if (fartSound) {
-                fartSound.currentTime = 0;
-                fartSound.play().catch(err => {
-                    console.log("Main sound failed, using backup");
-                    
-                    // If that fails, use the backup sound pool
-                    const backupSound = soundPool[soundIndex];
-                    backupSound.currentTime = 0;
-                    backupSound.play().catch(e => console.log("Backup sound failed too"));
-                    
-                    // Rotate through the sound pool
-                    soundIndex = (soundIndex + 1) % MAX_SOUNDS;
-                });
-            } else {
-                // If main sound isn't available, just use the pool
-                const backupSound = soundPool[soundIndex];
-                backupSound.currentTime = 0;
-                backupSound.play().catch(e => console.log("Sound failed"));
-                
-                // Rotate through the sound pool
-                soundIndex = (soundIndex + 1) % MAX_SOUNDS;
-            }
         }
 
         function dropPoop() {
@@ -438,7 +343,6 @@
                 }
             }
         }
-        }
 
         function movePeople() {
             for (let i = people.length - 1; i >= 0; i--) {
@@ -513,6 +417,52 @@
                 ctx.arc(poop.x - 3, poop.y - 2, 3, 0, Math.PI * 2);
                 ctx.fill();
             });
+        }
+
+        // Add a restart function to handle situations where game gets stuck
+        function restartGame() {
+            // Clear all existing people
+            for (let i = people.length - 1; i >= 0; i--) {
+                if (people[i].element && people[i].element.parentNode) {
+                    try {
+                        gameContainer.removeChild(people[i].element);
+                    } catch (e) {
+                        console.log("Error removing person during restart:", e);
+                    }
+                }
+            }
+            
+            // Reset game state
+            people = [];
+            poops = [];
+            score = 0;
+            gameTime = 0;
+            canDropPoop = true;
+            
+            // Reset bird position
+            birdX = GAME_WIDTH / 2 - 30;
+            birdElement.style.left = birdX + "px";
+        }
+        
+        // Add a restart button to handle stuck game
+        function addRestartButton() {
+            const restartButton = document.createElement('button');
+            restartButton.innerText = "🔄 Restart";
+            restartButton.style.position = "absolute";
+            restartButton.style.bottom = "10px";
+            restartButton.style.right = "10px";
+            restartButton.style.zIndex = "100";
+            restartButton.style.padding = "8px";
+            restartButton.style.backgroundColor = "rgba(255,255,255,0.8)";
+            restartButton.style.border = "none";
+            restartButton.style.borderRadius = "5px";
+            restartButton.style.cursor = "pointer";
+            
+            restartButton.onclick = function() {
+                restartGame();
+            };
+            
+            gameContainer.appendChild(restartButton);
         }
 
         function gameLoop() {
