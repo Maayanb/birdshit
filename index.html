@@ -51,7 +51,7 @@
         #elec {
             position: absolute;
             width: 100%;
-            height: 100px; /* Adjust height based on your elec.gif */
+            height: 50px; /* Reduced height to make it thinner */
             left: 0;
             z-index: 2;
         }
@@ -154,7 +154,7 @@
         let gameTime = 0;
         let spawnRate = 0.01;
         let elecY = GAME_HEIGHT; // Start at the bottom
-        let elecSpeed = 1; // Initial speed, increases with level
+        let elecSpeed = 0.5; // Reduced initial speed for slower movement
         let gameOver = false;
 
         // Add touch control for mobile
@@ -260,18 +260,25 @@
         function moveelec() {
             if (gameOver) return;
             const difficultyLevel = Math.floor(gameTime / 10000) + 1;
-            elecSpeed = 1 + difficultyLevel * 0.5; // Increase speed with level
+            elecSpeed = 0.5 + difficultyLevel * 0.2; // Slower speed increase (was 0.5)
             elecY -= elecSpeed; // Move up
-            if (elecY < -100) elecY = -100; // Prevent going too far up
+            if (elecY < -50) elecY = -50; // Adjusted to match thinner height
             elecElement.style.bottom = (GAME_HEIGHT - elecY) + "px";
             
-            // Check collision with bird
+            // Check collision: middle of elec.gif vs middle of bird
             const birdRect = birdElement.getBoundingClientRect();
             const elecRect = elecElement.getBoundingClientRect();
-            if (birdRect.bottom > elecRect.top && 
-                birdRect.top < elecRect.bottom && 
-                birdRect.right > elecRect.left && 
-                birdRect.left < elecRect.right) {
+            const birdCenterX = birdRect.left + birdRect.width / 2;
+            const birdCenterY = birdRect.top + birdRect.height / 2;
+            const elecCenterX = elecRect.left + elecRect.width / 2;
+            const elecCenterY = elecRect.top + elecRect.height / 2;
+
+            // Distance threshold for "middle" collision (e.g., 30px)
+            const distance = Math.sqrt(
+                Math.pow(birdCenterX - elecCenterX, 2) + 
+                Math.pow(birdCenterY - elecCenterY, 2)
+            );
+            if (distance < 30) { // Adjust threshold as needed
                 gameOver = true;
                 gameOverElement.style.display = "block";
             }
