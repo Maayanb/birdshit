@@ -96,25 +96,38 @@
         }
 
         function spawnPeople() {
-            if (Math.random() < 0.02) {
-                const personImg = document.createElement('img');
-                personImg.src = 'man1.gif';
-                personImg.style.position = 'absolute';
-                personImg.style.bottom = '0px';
-                personImg.style.left = '-60px';
-                personImg.style.width = '50px';
-                personImg.style.height = '60px';
-                document.body.appendChild(personImg);
+            if (Math.random() < 0.015) {
+                const personLeft = document.createElement('img');
+                personLeft.src = 'man1.gif';
+                personLeft.style.position = 'absolute';
+                personLeft.style.bottom = '0px';
+                personLeft.style.left = '-60px';
+                personLeft.style.width = '50px';
+                personLeft.style.height = '60px';
+                document.body.appendChild(personLeft);
 
-                people.push({ x: -60, y: canvas.height - 60, element: personImg });
+                people.push({ x: -60, y: canvas.height - 60, speed: 2, element: personLeft });
+            }
+
+            if (Math.random() < 0.015) {
+                const personRight = document.createElement('img');
+                personRight.src = 'man3.gif';
+                personRight.style.position = 'absolute';
+                personRight.style.bottom = '0px';
+                personRight.style.left = canvas.width + 'px';
+                personRight.style.width = '50px';
+                personRight.style.height = '60px';
+                document.body.appendChild(personRight);
+
+                people.push({ x: canvas.width, y: canvas.height - 60, speed: -2, element: personRight });
             }
         }
 
         function movePeople() {
             people.forEach((person, index) => {
-                person.x += 2;
+                person.x += person.speed;
                 person.element.style.left = person.x + 'px';
-                if (person.x > canvas.width) {
+                if (person.x > canvas.width || person.x < -60) {
                     document.body.removeChild(person.element);
                     people.splice(index, 1);
                 }
@@ -124,6 +137,7 @@
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+            // Draw Poops
             ctx.fillStyle = "brown";
             poops.forEach(poop => {
                 ctx.beginPath();
@@ -135,8 +149,8 @@
         function gameLoop() {
             moveBird();
             movePoops();
-            spawnPeople();
             movePeople();
+            spawnPeople();
             draw();
             requestAnimationFrame(gameLoop);
         }
@@ -146,6 +160,8 @@
             birdElement.style.top = birdY + "px";
             gameLoop();
         };
+
+        const birdElement = document.getElementById("bird");
     </script>
 </body>
 </html>
