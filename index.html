@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Cute Bird Poop Game</title>
+    <!-- Inline audio as a backup -->
+    <audio id="inlineAudio" preload="auto">
+        <source src="data:audio/mpeg;base64,//uQZAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAADAAACgACAgoKCgoKCgoKCgoKCgoKCgoKCvb29vb29vb29vb29vb29vb29vb3t7e3t7e3t7e3t7e3t7e3t7e3t////////////////////////////////////////AAAAAExhdmM1OC4xMwAAAAAAAAAAAAAAACQFAAAAAAAAAoCiQvFJFgAAAAAAAAAAAAAAAAD/+5DEAAAKnAN79BEAJQuA7380wklNJGNXw3TNGMDMGMTJ8CDJ8AJwgCUpEO0JOQDcIBjT//5PqCAdpQCVeMtGGEWpAEsT0+rAwAygiU4MoVSQdakBlJfrt/FqZB05lM3IFHZnhxNxP2M7gMSAkTSkYzNUuwYDJCLhIECXOCGE4+aaDAkpygnCgZaAYFjVQlRgiEzigMgxQMFxUAQYUAoEpgQQWHDRJwZ8GNKQ5AiQTG6QAACCnSYLRgw0Fg3G3RpsmDBq8eDDgw6AOjGIZ4DLQzcg88MvFDJBBUIBMEASoKaZOTv+lAgRJDLBM/pDmRg21SOLdIw9MMBIUZTikxQRJzP0QSUzGFMzMWYLJGaSpmdMaUZmYGRmSOxmYIDDQOmCYEGZnKFRuZcw8YmKmomJvyLT+UG1EzMzcxqTHLXgUzdDEOLUL2lv3/3rct+XNlKL5c4YsyLXAUDJ9XJdrX3P3g8Ey6Vd+RJDlDmTSCPeZOo3YK/+r+T5d99NLnQozLu7yUfylJ2JhQdoVXwWzZFbYnNSlzmrszHT61nzOrJYfNfA8X////+35///+//6vQ59KtSP9Ly/////3k9RS8f/+/Jz5eqtkZVT0TqFP9PV9NSE9PSH1aSRm3FYmU3OwqlOoqW3FP/////////quj///6/6alXUa7///9SSd3fzPUMud/L////88vnUjP/+OIQzldpAeWKECBAgQoWAF0/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////+5DEXwvLkgNo9PeALAAANIAAAAT////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="/>
+    </audio>
     <style>
         body {
             margin: 0;
@@ -128,14 +132,56 @@
         let gameTime = 0;
         let spawnRate = 0.01; // Starting spawn rate - slightly higher
 
-        // Load the fart sound - preload for better mobile support
-        const fartSound = new Audio('fart.mp3');
+        // Create audio elements for sound
+        const fartSound = document.createElement('audio');
+        fartSound.id = 'fartSound';
+        fartSound.src = 'fart.mp3';
         fartSound.preload = 'auto';
-        // Try to load sound immediately
-        fartSound.load();
+        document.body.appendChild(fartSound);
         
-        // Create a backup sound in case the first one doesn't work
-        const fartSound2 = new Audio('data:audio/mp3;base64,SUQzAwAAAAACGlRJVDIAAAAZAAAAcGhhcnJlbGwgZmFydCBzb3VuZCBlZmZlY3RUWUVSAAAABQAAADIwMDNUQ09NAAAAA...'); // Base64 encoded short sound
+        // Create a second audio element with an inline base64 encoded audio
+        // This is a very short simple sound that should work regardless of file availability
+        const fartSound2 = document.createElement('audio');
+        fartSound2.id = 'fartSound2';
+        fartSound2.src = 'data:audio/mpeg;base64,//uQxAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAAFAAAGUACFhYWFhYWFhYWFhYWFhYWFhYWFvb29vb29vb29vb29vb29vb29vb3p6enp6enp6enp6enp6enp6enp6f////////////////////////////////8AAAA8TEFNRTMuOTlyAc0AAAAAAAAAABSAJAJAQgAAgAAAA+gZtdwzAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA//sQxAADwAABpAAAACAAADSAAAAETEFNRTMuOTkuNVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVU=';
+        document.body.appendChild(fartSound2);
+        
+        // Add a third option - using the Web Audio API which works better on iOS
+        let audioContext;
+        let fartBuffer;
+        
+        // Initialize Web Audio API
+        try {
+            window.AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioContext = new AudioContext();
+            
+            // Create a simple beep sound as fallback
+            const createBeepSound = () => {
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.type = 'sine';
+                oscillator.frequency.value = 200;
+                gainNode.gain.value = 0.5;
+                
+                return { oscillator, gainNode };
+            };
+            
+            window.playBeep = () => {
+                const { oscillator, gainNode } = createBeepSound();
+                oscillator.start();
+                
+                // Short sound
+                setTimeout(() => {
+                    oscillator.stop();
+                }, 200);
+            };
+        } catch (e) {
+            console.log("Web Audio API not supported:", e);
+        }
 
         // Add touch control for mobile
         document.addEventListener("keydown", e => keys[e.key] = true);
@@ -172,24 +218,53 @@
             birdElement.style.left = birdX + "px";
         }
 
-        // Helper function to play sound with fallback
+        // Helper function to play sound with multiple fallbacks
         function playFartSound() {
-            // Try primary sound
+            // For debugging sound issues
+            console.log("Attempting to play sound...");
+            
+            // Try to resume AudioContext (needed for iOS)
+            if (audioContext && audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+            
+            // Method 1: Using the audio element
             try {
                 fartSound.currentTime = 0;
                 let playPromise = fartSound.play();
                 
                 if (playPromise !== undefined) {
                     playPromise.catch(error => {
-                        console.log("Primary sound failed, trying fallback");
-                        // Try fallback sound
-                        fartSound2.play().catch(e => console.log("Both sounds failed"));
+                        console.log("Primary sound failed:", error);
+                        
+                        // Method 2: Try inline base64 audio
+                        try {
+                            fartSound2.currentTime = 0;
+                            fartSound2.play().catch(e => {
+                                console.log("Both audio elements failed:", e);
+                                
+                                // Method 3: Try Web Audio API beep
+                                if (window.playBeep) {
+                                    console.log("Trying Web Audio API beep");
+                                    window.playBeep();
+                                } else {
+                                    // Method 4: As last resort, use alert() sound
+                                    console.log("Using alert() as last resort for sound");
+                                    setTimeout(() => {
+                                        // The alert itself makes a sound on most devices
+                                        // Hide it quickly with empty message
+                                        alert("");
+                                        setTimeout(() => document.querySelector('.alert').click(), 10);
+                                    }, 1);
+                                }
+                            });
+                        } catch (e2) {
+                            console.log("Error with backup sound:", e2);
+                        }
                     });
                 }
             } catch (error) {
                 console.log("Error with sounds:", error);
-                // Alert for debugging
-                // alert("Sound error: " + error.message);
             }
         }
 
@@ -345,16 +420,64 @@
             birdElement.style.left = birdX + "px";
             birdElement.style.top = birdY + "px";
             
-            // Try to unlock audio context for iOS
-            window.addEventListener('touchstart', function() {
-                // Play and immediately pause to unlock audio
-                fartSound.play().then(function() {
-                    fartSound.pause();
-                    fartSound.currentTime = 0;
-                }).catch(function(error) {
-                    console.log("Could not unlock audio:", error);
-                });
-            }, { once: true });
+            // Add sound button to manually trigger sound (helps with iOS restrictions)
+            const soundButton = document.createElement('button');
+            soundButton.innerText = "🔊 Enable Sound";
+            soundButton.style.position = "absolute";
+            soundButton.style.top = "10px";
+            soundButton.style.right = "10px";
+            soundButton.style.zIndex = "100";
+            soundButton.style.padding = "8px";
+            soundButton.style.backgroundColor = "rgba(255,255,255,0.8)";
+            soundButton.style.border = "none";
+            soundButton.style.borderRadius = "5px";
+            soundButton.style.cursor = "pointer";
+            
+            soundButton.onclick = function() {
+                // Try to unlock all possible sound mechanisms
+                try {
+                    // Unlock audio elements
+                    fartSound.play().then(() => fartSound.pause()).catch(e => console.log(e));
+                    fartSound2.play().then(() => fartSound2.pause()).catch(e => console.log(e));
+                    
+                    // Resume audio context
+                    if (audioContext && audioContext.state === 'suspended') {
+                        audioContext.resume();
+                    }
+                    
+                    // Play a test sound
+                    playFartSound();
+                    
+                    // Remove button after enabling
+                    this.remove();
+                } catch (e) {
+                    console.log("Error enabling sound:", e);
+                }
+            };
+            
+            gameContainer.appendChild(soundButton);
+            
+            // Try to unlock audio context for iOS on any user interaction
+            const unlockAudio = function() {
+                console.log("Attempting to unlock audio...");
+                
+                // Unlock audio elements
+                fartSound.load();
+                fartSound.play().then(() => fartSound.pause()).catch(e => console.log(e));
+                fartSound2.play().then(() => fartSound2.pause()).catch(e => console.log(e));
+                
+                // Resume audio context
+                if (audioContext && audioContext.state === 'suspended') {
+                    audioContext.resume();
+                }
+                
+                // Remove event listeners after first user interaction
+                document.removeEventListener('touchstart', unlockAudio);
+                document.removeEventListener('click', unlockAudio);
+            };
+            
+            document.addEventListener('touchstart', unlockAudio);
+            document.addEventListener('click', unlockAudio);
             
             gameLoop();
         }
