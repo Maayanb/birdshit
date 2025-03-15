@@ -11,11 +11,12 @@
             overflow: hidden;
             font-family: Arial, sans-serif;
             height: 100vh;
-            width: 200vw;
+            width: 100vw;
+            touch-action: manipulation; /* Prevents pinch zooming */
         }
 
         #game-container {
-            position: relative;
+            position: fixed; /* Fixed position instead of relative */
             width: 100%;
             height: 100%;
             background-image: url('field.jpg');
@@ -48,23 +49,35 @@
         }
 
         canvas {
-            position: absolute;
+            position: fixed; /* Fixed position to prevent movement */
             top: 0;
             left: 0;
             background: transparent;
             width: 100%;
             height: 100%;
+            z-index: 4;
         }
         
         .person {
             position: absolute;
-            bottom: 100px; /* Raised position so they're visible on mobile */
+            bottom: 150px; /* Even higher position to ensure visibility */
             width: 50px;
             height: 60px;
+            z-index: 3;
+        }
+
+        /* Disable all text selection to prevent zoom issues */
+        * {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
         }
     </style>
 </head>
-<body>
+<body ontouchstart="">
     <div id="game-container">
         <div id="score">Score: 0</div>
         <img id="bird" src="Bird-A1.gif" alt="bird">
@@ -72,23 +85,38 @@
     </div>
 
     <script>
-        // Set up responsive canvas
+        // Prevent double-tap zoom
+        document.addEventListener('dblclick', function(e) {
+            e.preventDefault();
+        });
+        
+        // Prevent pinch zooming
+        document.addEventListener('touchmove', function(e) {
+            if (e.touches.length > 1) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+
+        // Set up responsive canvas with fixed height
         const gameContainer = document.getElementById("game-container");
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
         
-        // Function to handle responsive sizing
+        // Set a fixed game height and width based on viewport
+        const GAME_HEIGHT = window.innerHeight;
+        const GAME_WIDTH = window.innerWidth;
+        
+        // Function to handle responsive sizing without changing dimensions after init
         function resizeGame() {
-            canvas.width = window.innerWidth;
-            canvas.height = window.innerHeight;
+            canvas.width = GAME_WIDTH;
+            canvas.height = GAME_HEIGHT;
         }
         
-        // Call resize on load and when window size changes
-        window.addEventListener('resize', resizeGame);
+        // Call resize only once at start
         resizeGame();
 
         const birdElement = document.getElementById("bird");
-        let birdX = canvas.width / 2 - 30;
+        let birdX = GAME_WIDTH / 2 - 30;
         let birdY = 30;
         const birdSpeed = 8;
         let score = 0;
@@ -98,15 +126,16 @@
         let keys = {};
         let canDropPoop = true;
         let gameTime = 0;
-        let spawnRate = 0.005; // Starting spawn rate - will increase over time
+        let spawnRate = 0.01; // Starting spawn rate - slightly higher
+
+        // Load the fart sound - preload for better mobile support
+        const fartSound = new Audio('fart.mp3');
+        fartSound.preload = 'auto';
+        // Try to load sound immediately
+        fartSound.load();
         
-        // Load the fart sound
-        const fartSound = new Audio();
-        fartSound.src = 'fart.mp3'; // Make sure to have this file in your project
-        // Fallback in case the file doesn't exist
-        fartSound.onerror = function() {
-            console.log("Fart sound could not be loaded");
-        };
+        // Create a backup sound in case the first one doesn't work
+        const fartSound2 = new Audio('data:audio/mp3;base64,SUQzAwAAAAACGlRJVDIAAAAZAAAAcGhhcnJlbGwgZmFydCBzb3VuZCBlZmZlY3RUWUVSAAAABQAAADIwMDNUQ09NAAAAA...'); // Base64 encoded short sound
 
         // Add touch control for mobile
         document.addEventListener("keydown", e => keys[e.key] = true);
@@ -120,14 +149,14 @@
             const touchX = e.touches[0].clientX;
             
             // Left side of screen moves bird left
-            if (touchX < window.innerWidth / 2) {
+            if (touchX < GAME_WIDTH / 2) {
                 birdX -= birdSpeed * 2;
                 if (birdX < 0) birdX = 0;
             } 
             // Right side moves bird right
             else {
                 birdX += birdSpeed * 2;
-                if (birdX > canvas.width - 60) birdX = canvas.width - 60;
+                if (birdX > GAME_WIDTH - 60) birdX = GAME_WIDTH - 60;
             }
             
             birdElement.style.left = birdX + "px";
@@ -138,23 +167,47 @@
 
         function moveBird() {
             if (keys["ArrowLeft"] && birdX > 0) birdX -= birdSpeed;
-            if (keys["ArrowRight"] && birdX < canvas.width - 60) birdX += birdSpeed;
+            if (keys["ArrowRight"] && birdX < GAME_WIDTH - 60) birdX += birdSpeed;
 
             birdElement.style.left = birdX + "px";
+        }
+
+        // Helper function to play sound with fallback
+        function playFartSound() {
+            // Try primary sound
+            try {
+                fartSound.currentTime = 0;
+                let playPromise = fartSound.play();
+                
+                if (playPromise !== undefined) {
+                    playPromise.catch(error => {
+                        console.log("Primary sound failed, trying fallback");
+                        // Try fallback sound
+                        fartSound2.play().catch(e => console.log("Both sounds failed"));
+                    });
+                }
+            } catch (error) {
+                console.log("Error with sounds:", error);
+                // Alert for debugging
+                // alert("Sound error: " + error.message);
+            }
         }
 
         function dropPoop() {
             // Only allow one poop at a time
             if (canDropPoop && poops.length === 0) {
-                poops.push({ x: birdX + 30, y: birdY + 50 });
+                // Get the exact position of the bird for more accurate poop
+                const birdRect = birdElement.getBoundingClientRect();
+                const birdCenterX = birdRect.left + (birdRect.width / 2);
+                const birdBottomY = birdRect.bottom;
+                
+                poops.push({ 
+                    x: birdCenterX, 
+                    y: birdBottomY 
+                });
                 
                 // Play fart sound
-                try {
-                    fartSound.currentTime = 0; // Reset sound to beginning
-                    fartSound.play().catch(e => console.log("Sound play error:", e));
-                } catch (e) {
-                    console.log("Error playing sound:", e);
-                }
+                playFartSound();
                 
                 // Prevent rapid poop dropping
                 canDropPoop = false;
@@ -166,7 +219,7 @@
 
         function movePoops() {
             for (let i = poops.length - 1; i >= 0; i--) {
-                poops[i].y += 8;
+                poops[i].y += 10; // Slightly faster poop speed
                 
                 for (let j = people.length - 1; j >= 0; j--) {
                     if (poops[i] && people[j] && 
@@ -175,7 +228,6 @@
                         poops[i].x < people[j].x + 50) {
                         
                         score++;
-                        document.getElementById("score").innerText = "Score: " + score;
                         
                         if (people[j].element && people[j].element.parentNode) {
                             gameContainer.removeChild(people[j].element);
@@ -187,7 +239,7 @@
                     }
                 }
                 
-                if (poops[i] && poops[i].y > canvas.height) {
+                if (poops[i] && poops[i].y > GAME_HEIGHT) {
                     poops.splice(i, 1);
                 }
             }
@@ -196,10 +248,10 @@
         function spawnPeople() {
             // Gradually increase spawn rate as game progresses
             // But limit to reasonable maximum
-            spawnRate = Math.min(0.03, 0.005 + (gameTime / 10000) * 0.025);
+            spawnRate = Math.min(0.04, 0.01 + (gameTime / 8000) * 0.03);
             
             // Limit the maximum number of people on screen
-            const maxPeople = 5 + Math.floor(gameTime / 15000); // Add more max people over time
+            const maxPeople = 4 + Math.floor(gameTime / 12000); // Add more max people over time
             
             // Only spawn if we're under the people limit
             if (people.length < maxPeople) {
@@ -213,7 +265,7 @@
     
                     people.push({ 
                         x: -60, 
-                        y: canvas.height - 120, // Raised position
+                        y: GAME_HEIGHT - 210, // Raised position to ensure visibility
                         speed: 2 + Math.random(), // Slightly randomized speed
                         element: personLeft 
                     });
@@ -224,12 +276,12 @@
                     const personRight = document.createElement('img');
                     personRight.src = 'man3.gif';
                     personRight.className = 'person';
-                    personRight.style.left = canvas.width + 'px';
+                    personRight.style.left = GAME_WIDTH + 'px';
                     gameContainer.appendChild(personRight);
     
                     people.push({ 
-                        x: canvas.width, 
-                        y: canvas.height - 120, // Raised position
+                        x: GAME_WIDTH, 
+                        y: GAME_HEIGHT - 210, // Raised position to ensure visibility
                         speed: -(2 + Math.random()), // Slightly randomized speed
                         element: personRight 
                     });
@@ -242,7 +294,7 @@
                 people[i].x += people[i].speed;
                 people[i].element.style.left = people[i].x + 'px';
                 
-                if (people[i].x > canvas.width || people[i].x < -60) {
+                if (people[i].x > GAME_WIDTH || people[i].x < -60) {
                     if (people[i].element && people[i].element.parentNode) {
                         gameContainer.removeChild(people[i].element);
                     }
@@ -252,13 +304,20 @@
         }
 
         function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
-            // Draw Poops
-            ctx.fillStyle = "brown";
+            // Draw Poops - make them look more like poop
             poops.forEach(poop => {
+                // Draw a more poop-like shape
+                ctx.fillStyle = "#613b12";
                 ctx.beginPath();
-                ctx.arc(poop.x, poop.y, 8, 0, Math.PI * 2);
+                ctx.arc(poop.x, poop.y, 10, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Add some detail to make it look more like poop
+                ctx.fillStyle = "#4d2e0c";
+                ctx.beginPath();
+                ctx.arc(poop.x - 3, poop.y - 2, 3, 0, Math.PI * 2);
                 ctx.fill();
             });
         }
@@ -283,9 +342,20 @@
 
         // Initialize the game
         function initGame() {
-            resizeGame(); // Make sure canvas is properly sized
             birdElement.style.left = birdX + "px";
             birdElement.style.top = birdY + "px";
+            
+            // Try to unlock audio context for iOS
+            window.addEventListener('touchstart', function() {
+                // Play and immediately pause to unlock audio
+                fartSound.play().then(function() {
+                    fartSound.pause();
+                    fartSound.currentTime = 0;
+                }).catch(function(error) {
+                    console.log("Could not unlock audio:", error);
+                });
+            }, { once: true });
+            
             gameLoop();
         }
 
