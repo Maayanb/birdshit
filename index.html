@@ -7,6 +7,7 @@
     <!-- Inline fart sound directly in the HTML to guarantee availability -->
     <audio id="fartSound" preload="auto">
         <source src="fart.mp3" type="audio/mpeg">
+        Your browser does not support the audio element.
     </audio>
     <style>
         body {
@@ -132,68 +133,86 @@
         let gameTime = 0;
         let spawnRate = 0.01;
 
-        // Sound system that plays a short fart sound
+        // Improved Sound System
         const fartSound = document.getElementById('fartSound');
-        
-        // Create a simple but effective backup sound system
-        const MAX_SOUNDS = 3; // Limit to 3 sounds max
+        const MAX_SOUNDS = 3; // Limit to 3 sounds in pool
         const soundPool = [];
-        
-        // Create a small pool of audio elements as backup
-        for (let i = 0; i < MAX_SOUNDS; i++) {
-            const sound = new Audio();
-            sound.src = 'fart.mp3';
-            sound.volume = 0.8;
-            soundPool.push(sound);
-        }
-        
-        let soundIndex = 0; // Keep track of which sound to use next
-        
-        // Simple function to play the fart sound
-        function playFartSound() {
-            // Try the main sound element first
-            if (fartSound) {
-                fartSound.currentTime = 0;
-                fartSound.play().catch(err => {
-                    console.log("Main sound failed, using backup");
-                    
-                    // If that fails, use the backup sound pool
-                    const backupSound = soundPool[soundIndex];
-                    backupSound.currentTime = 0;
-                    backupSound.play().catch(e => console.log("Backup sound failed too"));
-                    
-                    // Rotate through the sound pool
-                    soundIndex = (soundIndex + 1) % MAX_SOUNDS;
-                });
-            } else {
-                // If main sound isn't available, just use the pool
-                const backupSound = soundPool[soundIndex];
-                backupSound.currentTime = 0;
-                backupSound.play().catch(e => console.log("Sound failed"));
-                
-                // Rotate through the sound pool
-                soundIndex = (soundIndex + 1) % MAX_SOUNDS;
+        let isSoundEnabled = false; // Track if sound is unlocked
+
+        // Initialize sound pool
+        function initializeSoundPool() {
+            for (let i = 0; i < MAX_SOUNDS; i++) {
+                const sound = new Audio('fart.mp3');
+                sound.preload = 'auto'; // Ensure preloading
+                sound.volume = 0.8;
+                soundPool.push(sound);
             }
+        }
+
+        // Unlock audio for mobile devices (iOS fix)
+        function unlockAudio() {
+            if (isSoundEnabled) return; // Already unlocked
+
+            const unlockPromises = [];
+            if (fartSound) {
+                unlockPromises.push(
+                    fartSound.play().then(() => {
+                        fartSound.pause();
+                        fartSound.currentTime = 0;
+                    }).catch(e => console.log('Main audio unlock failed:', e))
+                );
+            }
+
+            soundPool.forEach(sound => {
+                unlockPromises.push(
+                    sound.play().then(() => {
+                        sound.pause();
+                        sound.currentTime = 0;
+                    }).catch(e => console.log('Backup audio unlock failed:', e))
+                );
+            });
+
+            Promise.all(unlockPromises).then(() => {
+                isSoundEnabled = true;
+                console.log('Audio unlocked successfully');
+            });
+        }
+
+        // Play fart sound using sound pool
+        function playFartSound() {
+            if (!isSoundEnabled) {
+                console.log('Sound not yet enabled. Please interact with the game first.');
+                return;
+            }
+
+            // Use the sound pool to avoid overlapping issues
+            const sound = soundPool.shift(); // Take first sound from pool
+            sound.currentTime = 0;
+            sound.play().catch(e => {
+                console.error('Sound playback failed:', e);
+            });
+            soundPool.push(sound); // Put it back at the end of the pool
         }
 
         // Add touch control for mobile
         document.addEventListener("keydown", e => keys[e.key] = true);
         document.addEventListener("keyup", e => keys[e.key] = false);
         
-        // Make sound play on any click/touch, regardless of poop
+        // Handle click/touch to unlock audio and play sound
         document.addEventListener("click", function(e) {
-            playFartSound(); // Always play sound on click
-            if (canDropPoop) { // Only drop poop if allowed
+            unlockAudio(); // Attempt to unlock audio on first interaction
+            playFartSound(); // Play sound
+            if (canDropPoop) {
                 dropPoop();
             }
         });
         
         document.addEventListener("touchstart", function(e) {
             e.preventDefault();
+            unlockAudio(); // Attempt to unlock audio on first interaction
             const touchX = e.touches[0].clientX;
             
-            // Always play sound on touch
-            playFartSound();
+            playFartSound(); // Play sound
             
             // Left side of screen moves bird left
             if (touchX < GAME_WIDTH / 2) {
@@ -208,50 +227,41 @@
             
             birdElement.style.left = birdX + "px";
             
-            // Only drop poop if allowed
             if (canDropPoop) {
                 dropPoop();
             }
         });
 
         function moveBird() {
-            // Check if arrow keys are pressed and move bird accordingly
             if (keys["ArrowLeft"] && birdX > 0) birdX -= birdSpeed;
             if (keys["ArrowRight"] && birdX < GAME_WIDTH - 60) birdX += birdSpeed;
 
-            // Ensure bird stays within screen bounds
             birdX = Math.max(0, Math.min(birdX, GAME_WIDTH - 60));
-            
-            // Update bird position
             birdElement.style.left = birdX + "px";
         }
 
         function dropPoop() {
-            // Get the exact position of the bird for more accurate poop
             const birdRect = birdElement.getBoundingClientRect();
             const birdCenterX = birdRect.left + (birdRect.width / 2);
             const birdBottomY = birdRect.bottom;
             
-            // Add a new poop
             poops.push({ 
                 x: birdCenterX, 
                 y: birdBottomY 
             });
             
-            // Prevent rapid poop dropping (limit the rate)
             canDropPoop = false;
             setTimeout(() => {
                 canDropPoop = true;
-            }, 500); // Wait half a second before allowing another poop
+            }, 500);
         }
 
         function movePoops() {
             for (let i = poops.length - 1; i >= 0; i--) {
-                poops[i].y += 10; // Slightly faster poop speed
+                poops[i].y += 10;
                 
                 let hitSomeone = false;
                 
-                // Check for collisions with people
                 for (let j = people.length - 1; j >= 0; j--) {
                     if (poops[i] && people[j] && 
                         poops[i].y > people[j].y && 
@@ -259,10 +269,7 @@
                         poops[i].x > people[j].x && 
                         poops[i].x < people[j].x + 50) {
                         
-                        // Poop hit a person!
                         score++;
-                        
-                        // Remove the person if they exist in the DOM
                         if (people[j].element && people[j].element.parentNode) {
                             try {
                                 gameContainer.removeChild(people[j].element);
@@ -270,37 +277,27 @@
                                 console.log("Error removing hit person:", e);
                             }
                         }
-                        
                         people.splice(j, 1);
                         hitSomeone = true;
                         break;
                     }
                 }
                 
-                // Remove poop if it hit someone or went off screen
                 if (hitSomeone || poops[i].y > GAME_HEIGHT) {
                     poops.splice(i, 1);
                 }
             }
             
-            // Limit maximum number of poops to prevent memory issues
             if (poops.length > 20) {
                 poops.splice(0, poops.length - 20);
             }
         }
 
         function spawnPeople() {
-            // Gradually increase spawn rate as game progresses
-            // But limit to reasonable maximum
             spawnRate = Math.min(0.04, 0.01 + (gameTime / 8000) * 0.03);
+            const maxPeople = 4 + Math.floor(gameTime / 12000);
             
-            // Limit the maximum number of people on screen
-            const maxPeople = 4 + Math.floor(gameTime / 12000); // Add more max people over time
-            
-            // Only spawn if we're under the people limit and there's enough game time
-            // Skip spawning for the first second to let the game initialize properly
             if (people.length < maxPeople && gameTime > 1000) {
-                // Left side people
                 if (Math.random() < spawnRate) {
                     try {
                         const personLeft = document.createElement('img');
@@ -311,17 +308,16 @@
         
                         people.push({ 
                             x: -60, 
-                            y: GAME_HEIGHT - 210, // Raised position to ensure visibility
-                            speed: 2 + Math.random(), // Slightly randomized speed
+                            y: GAME_HEIGHT - 210,
+                            speed: 2 + Math.random(),
                             element: personLeft,
-                            timestamp: gameTime // Add timestamp for cleanup tracking
+                            timestamp: gameTime
                         });
                     } catch (e) {
                         console.log("Error spawning left person:", e);
                     }
                 }
     
-                // Right side people
                 if (Math.random() < spawnRate) {
                     try {
                         const personRight = document.createElement('img');
@@ -332,10 +328,10 @@
         
                         people.push({ 
                             x: GAME_WIDTH, 
-                            y: GAME_HEIGHT - 210, // Raised position to ensure visibility
-                            speed: -(2 + Math.random()), // Slightly randomized speed
+                            y: GAME_HEIGHT - 210,
+                            speed: -(2 + Math.random()),
                             element: personRight,
-                            timestamp: gameTime // Add timestamp for cleanup tracking
+                            timestamp: gameTime
                         });
                     } catch (e) {
                         console.log("Error spawning right person:", e);
@@ -346,17 +342,12 @@
 
         function movePeople() {
             for (let i = people.length - 1; i >= 0; i--) {
-                // Update person position
                 people[i].x += people[i].speed;
-                
-                // Check if the person exists before trying to update DOM
                 if (people[i].element) {
                     people[i].element.style.left = people[i].x + 'px';
                 }
                 
-                // Remove people who have gone off screen
                 if (people[i].x > GAME_WIDTH + 50 || people[i].x < -100) {
-                    // Make sure element exists and is attached to DOM before removing
                     if (people[i].element && people[i].element.parentNode) {
                         try {
                             gameContainer.removeChild(people[i].element);
@@ -368,25 +359,20 @@
                 }
             }
             
-            // Periodically check for and remove any stuck people
             if (gameTime % 1000 === 0) {
                 cleanupStuckPeople();
             }
         }
         
-        // Function to clean up any potentially stuck people
         function cleanupStuckPeople() {
-            // Check if any people have been on screen too long (30 seconds)
             const currentTime = gameTime;
-            const timeLimit = 30000; // 30 seconds in game time
+            const timeLimit = 30000;
             
             for (let i = people.length - 1; i >= 0; i--) {
-                // If a person has no timestamp, add one
                 if (!people[i].timestamp) {
                     people[i].timestamp = currentTime;
                 }
                 
-                // If a person has been around too long, remove them
                 if ((currentTime - people[i].timestamp) > timeLimit) {
                     if (people[i].element && people[i].element.parentNode) {
                         try {
@@ -403,15 +389,12 @@
         function draw() {
             ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
-            // Draw Poops - make them look more like poop
             poops.forEach(poop => {
-                // Draw a more poop-like shape
                 ctx.fillStyle = "#613b12";
                 ctx.beginPath();
                 ctx.arc(poop.x, poop.y, 10, 0, Math.PI * 2);
                 ctx.fill();
                 
-                // Add some detail to make it look more like poop
                 ctx.fillStyle = "#4d2e0c";
                 ctx.beginPath();
                 ctx.arc(poop.x - 3, poop.y - 2, 3, 0, Math.PI * 2);
@@ -419,9 +402,7 @@
             });
         }
 
-        // Add a restart function to handle situations where game gets stuck
         function restartGame() {
-            // Clear all existing people
             for (let i = people.length - 1; i >= 0; i--) {
                 if (people[i].element && people[i].element.parentNode) {
                     try {
@@ -432,19 +413,16 @@
                 }
             }
             
-            // Reset game state
             people = [];
             poops = [];
             score = 0;
             gameTime = 0;
             canDropPoop = true;
             
-            // Reset bird position
             birdX = GAME_WIDTH / 2 - 30;
             birdElement.style.left = birdX + "px";
         }
         
-        // Add a restart button to handle stuck game
         function addRestartButton() {
             const restartButton = document.createElement('button');
             restartButton.innerText = "🔄 Restart";
@@ -466,8 +444,7 @@
         }
 
         function gameLoop() {
-            // Increment game time (in milliseconds)
-            gameTime += 16; // Approximately 60fps
+            gameTime += 16;
             
             try {
                 moveBird();
@@ -476,23 +453,18 @@
                 spawnPeople();
                 draw();
                 
-                // Display game info in score element
                 const scoreDiv = document.getElementById("score");
                 const difficultyLevel = Math.floor(gameTime / 10000) + 1;
                 scoreDiv.innerText = `Score: ${score} | Level: ${difficultyLevel}`;
                 
-                // Periodically force cleanup of any stuck elements
-                if (gameTime % 5000 === 0) { // Every 5 seconds
+                if (gameTime % 5000 === 0) {
                     console.log(`Game state: ${people.length} people, ${poops.length} poops`);
                     cleanupStuckPeople();
                 }
                 
                 requestAnimationFrame(gameLoop);
             } catch (e) {
-                // If there's an error in the game loop, try to recover
                 console.log("Error in game loop:", e);
-                
-                // Force cleanup and try to continue
                 cleanupStuckPeople();
                 requestAnimationFrame(gameLoop);
             }
@@ -503,49 +475,11 @@
             birdElement.style.left = birdX + "px";
             birdElement.style.top = birdY + "px";
             
-            // Add sound button to manually trigger sound (helps with iOS restrictions)
-            const soundButton = document.createElement('button');
-            soundButton.innerText = "🔊 Enable Sound";
-            soundButton.style.position = "absolute";
-            soundButton.style.top = "10px";
-            soundButton.style.right = "10px";
-            soundButton.style.zIndex = "100";
-            soundButton.style.padding = "8px";
-            soundButton.style.backgroundColor = "rgba(255,255,255,0.8)";
-            soundButton.style.border = "none";
-            soundButton.style.borderRadius = "5px";
-            soundButton.style.cursor = "pointer";
-            
-            soundButton.onclick = function() {
-                // Play sound to show it's working
-                playFartSound();
-                
-                // For iOS, we need to directly interact with the audio elements
-                if (fartSound) {
-                    fartSound.play().then(() => fartSound.pause()).catch(e => console.log(e));
-                }
-                
-                // Try all backup sounds too
-                soundPool.forEach(sound => {
-                    sound.play().then(() => sound.pause()).catch(e => console.log(e));
-                });
-                
-                // Remove button after enabling
-                this.remove();
-            };
-            
-            gameContainer.appendChild(soundButton);
-            
-            // Add restart button to help with stuck game
+            // Initialize sound pool
+            initializeSoundPool();
+
+            // Add restart button
             addRestartButton();
-            
-            // Mobile fix - try to preload the sound on first touch
-            document.addEventListener('touchstart', function() {
-                if (fartSound) {
-                    fartSound.load();
-                    fartSound.play().then(() => fartSound.pause()).catch(e => {});
-                }
-            }, { once: true });
             
             gameLoop();
         }
@@ -553,7 +487,6 @@
         // Start game when window loads
         window.onload = initGame;
 
-        // Also initialize if document is already complete
         if (document.readyState === "complete") {
             initGame();
         }
