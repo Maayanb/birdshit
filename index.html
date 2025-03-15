@@ -186,13 +186,19 @@
         // Add touch control for mobile
         document.addEventListener("keydown", e => keys[e.key] = true);
         document.addEventListener("keyup", e => keys[e.key] = false);
-        document.addEventListener("click", dropPoop);
-        document.addEventListener("touchstart", handleTouch);
         
-        // Handle mobile touch events
-        function handleTouch(e) {
+        // Make sound play on any click/touch, regardless of poop
+        document.addEventListener("click", function(e) {
+            playFartSound();
+            dropPoop();
+        });
+        
+        document.addEventListener("touchstart", function(e) {
             e.preventDefault();
             const touchX = e.touches[0].clientX;
+            
+            // Always play sound on touch
+            playFartSound();
             
             // Left side of screen moves bird left
             if (touchX < GAME_WIDTH / 2) {
@@ -209,7 +215,7 @@
             
             // Drop poop on touch
             dropPoop();
-        }
+        });
 
         function moveBird() {
             if (keys["ArrowLeft"] && birdX > 0) birdX -= birdSpeed;
@@ -218,78 +224,87 @@
             birdElement.style.left = birdX + "px";
         }
 
-        // Helper function to play sound with multiple fallbacks
+        // Sound system that allows multiple overlapping sounds
+        const MAX_SOUNDS = 10; // Maximum number of simultaneous sounds
+        const soundPool = [];
+        
+        // Create a pool of audio elements for overlapping sounds
+        for (let i = 0; i < MAX_SOUNDS; i++) {
+            const sound = document.createElement('audio');
+            sound.src = 'fart.mp3'; // Your short fart sound file
+            sound.preload = 'auto';
+            sound.volume = 0.7; // Slightly reduced volume to prevent distortion when overlapping
+            sound.dataset.available = "true"; // Mark as available
+            document.body.appendChild(sound);
+            soundPool.push(sound);
+        }
+        
+        // Add inline base64 audio as fallback
+        const inlineAudio = document.getElementById('inlineAudio');
+        
+        // Play sound function that allows overlapping
         function playFartSound() {
-            // For debugging sound issues
-            console.log("Attempting to play sound...");
+            // Find an available sound from the pool
+            const availableSound = soundPool.find(sound => sound.dataset.available === "true");
             
-            // Try to resume AudioContext (needed for iOS)
-            if (audioContext && audioContext.state === 'suspended') {
-                audioContext.resume();
-            }
-            
-            // Method 1: Using the audio element
-            try {
-                fartSound.currentTime = 0;
-                let playPromise = fartSound.play();
+            if (availableSound) {
+                // Mark as in use
+                availableSound.dataset.available = "false";
+                
+                // Reset and play
+                availableSound.currentTime = 0;
+                
+                // Play the sound
+                const playPromise = availableSound.play();
                 
                 if (playPromise !== undefined) {
-                    playPromise.catch(error => {
-                        console.log("Primary sound failed:", error);
+                    playPromise.then(() => {
+                        // Mark as available again when done
+                        setTimeout(() => {
+                            availableSound.dataset.available = "true";
+                        }, 100); // Short timeout to prevent immediate reuse
+                    }).catch(error => {
+                        console.log("Error playing sound:", error);
+                        availableSound.dataset.available = "true"; // Mark as available if failed
                         
-                        // Method 2: Try inline base64 audio
-                        try {
-                            fartSound2.currentTime = 0;
-                            fartSound2.play().catch(e => {
-                                console.log("Both audio elements failed:", e);
-                                
-                                // Method 3: Try Web Audio API beep
-                                if (window.playBeep) {
-                                    console.log("Trying Web Audio API beep");
-                                    window.playBeep();
-                                } else {
-                                    // Method 4: As last resort, use alert() sound
-                                    console.log("Using alert() as last resort for sound");
-                                    setTimeout(() => {
-                                        // The alert itself makes a sound on most devices
-                                        // Hide it quickly with empty message
-                                        alert("");
-                                        setTimeout(() => document.querySelector('.alert').click(), 10);
-                                    }, 1);
-                                }
-                            });
-                        } catch (e2) {
-                            console.log("Error with backup sound:", e2);
+                        // Try inline audio as fallback
+                        if (inlineAudio) {
+                            inlineAudio.currentTime = 0;
+                            inlineAudio.play().catch(e => console.log("Inline audio failed too:", e));
                         }
                     });
                 }
-            } catch (error) {
-                console.log("Error with sounds:", error);
+            } else {
+                // If no available sounds, try to create a new one on the fly
+                const newSound = document.createElement('audio');
+                newSound.src = 'fart.mp3';
+                newSound.volume = 0.7;
+                document.body.appendChild(newSound);
+                newSound.play().catch(e => {
+                    console.log("New sound failed:", e);
+                    
+                    // Try inline as last resort
+                    if (inlineAudio) {
+                        inlineAudio.currentTime = 0;
+                        inlineAudio.play().catch(e => console.log("All sound options failed"));
+                    }
+                });
             }
         }
 
         function dropPoop() {
-            // Only allow one poop at a time
-            if (canDropPoop && poops.length === 0) {
-                // Get the exact position of the bird for more accurate poop
-                const birdRect = birdElement.getBoundingClientRect();
-                const birdCenterX = birdRect.left + (birdRect.width / 2);
-                const birdBottomY = birdRect.bottom;
-                
-                poops.push({ 
-                    x: birdCenterX, 
-                    y: birdBottomY 
-                });
-                
-                // Play fart sound
-                playFartSound();
-                
-                // Prevent rapid poop dropping
-                canDropPoop = false;
-                setTimeout(() => {
-                    canDropPoop = true;
-                }, 500); // Wait half a second before allowing another poop
-            }
+            // Get the exact position of the bird for more accurate poop
+            const birdRect = birdElement.getBoundingClientRect();
+            const birdCenterX = birdRect.left + (birdRect.width / 2);
+            const birdBottomY = birdRect.bottom;
+            
+            // Add a new poop regardless of whether there are other poops
+            poops.push({ 
+                x: birdCenterX, 
+                y: birdBottomY 
+            });
+            
+            // No longer limiting to one poop at a time
         }
 
         function movePoops() {
@@ -434,50 +449,45 @@
             soundButton.style.cursor = "pointer";
             
             soundButton.onclick = function() {
-                // Try to unlock all possible sound mechanisms
-                try {
-                    // Unlock audio elements
-                    fartSound.play().then(() => fartSound.pause()).catch(e => console.log(e));
-                    fartSound2.play().then(() => fartSound2.pause()).catch(e => console.log(e));
-                    
-                    // Resume audio context
-                    if (audioContext && audioContext.state === 'suspended') {
-                        audioContext.resume();
-                    }
-                    
-                    // Play a test sound
-                    playFartSound();
-                    
-                    // Remove button after enabling
-                    this.remove();
-                } catch (e) {
-                    console.log("Error enabling sound:", e);
+                // Try to unlock all sound mechanisms
+                // Play one sound immediately to show it's working
+                playFartSound();
+                
+                // Unlock all audio elements in the pool
+                soundPool.forEach(sound => {
+                    sound.load();
+                    sound.play().then(() => sound.pause()).catch(e => console.log(e));
+                });
+                
+                // Also try the inline audio
+                if (inlineAudio) {
+                    inlineAudio.play().then(() => inlineAudio.pause()).catch(e => console.log(e));
                 }
+                
+                // Remove button after enabling
+                this.remove();
             };
             
             gameContainer.appendChild(soundButton);
             
-            // Try to unlock audio context for iOS on any user interaction
+            // Try to unlock audio on any user interaction
             const unlockAudio = function() {
                 console.log("Attempting to unlock audio...");
                 
-                // Unlock audio elements
-                fartSound.load();
-                fartSound.play().then(() => fartSound.pause()).catch(e => console.log(e));
-                fartSound2.play().then(() => fartSound2.pause()).catch(e => console.log(e));
-                
-                // Resume audio context
-                if (audioContext && audioContext.state === 'suspended') {
-                    audioContext.resume();
+                // Try to unlock the first sound in the pool
+                if (soundPool.length > 0) {
+                    soundPool[0].load();
+                    soundPool[0].play().then(() => soundPool[0].pause()).catch(e => console.log(e));
                 }
                 
-                // Remove event listeners after first user interaction
-                document.removeEventListener('touchstart', unlockAudio);
-                document.removeEventListener('click', unlockAudio);
+                // Try inline audio too
+                if (inlineAudio) {
+                    inlineAudio.play().then(() => inlineAudio.pause()).catch(e => console.log(e));
+                }
             };
             
-            document.addEventListener('touchstart', unlockAudio);
-            document.addEventListener('click', unlockAudio);
+            document.addEventListener('touchstart', unlockAudio, { once: true });
+            document.addEventListener('click', unlockAudio, { once: true });
             
             gameLoop();
         }
