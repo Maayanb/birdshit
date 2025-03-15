@@ -7,9 +7,7 @@
         body {
             margin: 0;
             overflow: hidden;
-            background-image: url('field.jpg');
-            background-size: cover;
-            background-position: center;
+            background-color: lightblue; /* Fallback color if image doesn't load */
             font-family: Arial, sans-serif;
         }
 
@@ -41,11 +39,18 @@
             left: 0;
             background: transparent;
         }
+        
+        .person {
+            position: absolute;
+            bottom: 0px;
+            width: 50px;
+            height: 60px;
+        }
     </style>
 </head>
 <body>
     <div id="score">Score: 0</div>
-    <img id="bird" src="Bird-A1.gif" alt="bird">
+    <img id="bird" src="/api/placeholder/60/60" alt="bird">
     <canvas id="gameCanvas"></canvas>
 
     <script>
@@ -80,58 +85,78 @@
         }
 
         function movePoops() {
-            poops.forEach((poop, index) => {
-                poop.y += 8;
-                people.forEach((person, pIndex) => {
-                    if (poop.y > person.y && poop.x > person.x && poop.x < person.x + 50) {
+            for (let i = poops.length - 1; i >= 0; i--) {
+                poops[i].y += 8;
+                
+                for (let j = people.length - 1; j >= 0; j--) {
+                    if (poops[i] && people[j] && 
+                        poops[i].y > people[j].y && 
+                        poops[i].x > people[j].x && 
+                        poops[i].x < people[j].x + 50) {
+                        
                         score++;
                         document.getElementById("score").innerText = "Score: " + score;
-                        document.body.removeChild(person.element);
-                        people.splice(pIndex, 1);
-                        poops.splice(index, 1);
+                        
+                        if (people[j].element && people[j].element.parentNode) {
+                            document.body.removeChild(people[j].element);
+                        }
+                        
+                        people.splice(j, 1);
+                        poops.splice(i, 1);
+                        break;
                     }
-                });
-                if (poop.y > canvas.height) poops.splice(index, 1);
-            });
+                }
+                
+                if (poops[i] && poops[i].y > canvas.height) {
+                    poops.splice(i, 1);
+                }
+            }
         }
 
         function spawnPeople() {
             if (Math.random() < 0.015) {
                 const personLeft = document.createElement('img');
-                personLeft.src = 'man1.gif';
-                personLeft.style.position = 'absolute';
-                personLeft.style.bottom = '0px';
+                personLeft.src = '/api/placeholder/50/60';
+                personLeft.className = 'person';
                 personLeft.style.left = '-60px';
-                personLeft.style.width = '50px';
-                personLeft.style.height = '60px';
                 document.body.appendChild(personLeft);
 
-                people.push({ x: -60, y: canvas.height - 60, speed: 2, element: personLeft });
+                people.push({ 
+                    x: -60, 
+                    y: canvas.height - 60, 
+                    speed: 2, 
+                    element: personLeft 
+                });
             }
 
             if (Math.random() < 0.015) {
                 const personRight = document.createElement('img');
-                personRight.src = 'man3.gif';
-                personRight.style.position = 'absolute';
-                personRight.style.bottom = '0px';
+                personRight.src = '/api/placeholder/50/60';
+                personRight.className = 'person';
                 personRight.style.left = canvas.width + 'px';
-                personRight.style.width = '50px';
-                personRight.style.height = '60px';
                 document.body.appendChild(personRight);
 
-                people.push({ x: canvas.width, y: canvas.height - 60, speed: -2, element: personRight });
+                people.push({ 
+                    x: canvas.width, 
+                    y: canvas.height - 60, 
+                    speed: -2, 
+                    element: personRight 
+                });
             }
         }
 
         function movePeople() {
-            people.forEach((person, index) => {
-                person.x += person.speed;
-                person.element.style.left = person.x + 'px';
-                if (person.x > canvas.width || person.x < -60) {
-                    document.body.removeChild(person.element);
-                    people.splice(index, 1);
+            for (let i = people.length - 1; i >= 0; i--) {
+                people[i].x += people[i].speed;
+                people[i].element.style.left = people[i].x + 'px';
+                
+                if (people[i].x > canvas.width || people[i].x < -60) {
+                    if (people[i].element && people[i].element.parentNode) {
+                        document.body.removeChild(people[i].element);
+                    }
+                    people.splice(i, 1);
                 }
-            });
+            }
         }
 
         function draw() {
@@ -161,7 +186,12 @@
             gameLoop();
         };
 
-        const birdElement = document.getElementById("bird");
+        // Initialize the game immediately if the window is already loaded
+        if (document.readyState === "complete") {
+            birdElement.style.left = birdX + "px";
+            birdElement.style.top = birdY + "px";
+            gameLoop();
+        }
     </script>
 </body>
 </html>
