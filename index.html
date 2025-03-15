@@ -133,44 +133,78 @@
         let gameTime = 0;
         let spawnRate = 0.01;
 
-        // Simplified Sound System
+        // Sound System with Pool for Overlapping Playback
         const fartSound = document.getElementById('fartSound');
+        const MAX_SOUNDS = 5; // Maximum number of simultaneous sounds
+        const soundPool = [];
         let isSoundEnabled = false; // Track if sound is unlocked
+        let soundIndex = 0; // Index to cycle through sound pool
+
+        // Initialize sound pool
+        function initializeSoundPool() {
+            for (let i = 0; i < MAX_SOUNDS; i++) {
+                const sound = new Audio('fart.m4a');
+                sound.preload = 'auto'; // Ensure preloading
+                sound.volume = 0.8;
+                soundPool.push(sound);
+            }
+        }
 
         // Function to unlock audio (required for mobile devices)
         function unlockAudio() {
             if (isSoundEnabled) return; // Already unlocked
 
+            const unlockPromises = [];
             if (fartSound) {
-                fartSound.play().then(() => {
-                    fartSound.pause(); // Pause immediately to unlock without playing
-                    fartSound.currentTime = 0;
-                    isSoundEnabled = true;
-                    console.log('Audio unlocked successfully');
-                }).catch(error => {
-                    console.error('Error unlocking audio:', error);
-                });
-            } else {
-                console.error('Audio element not found. Ensure fart.m4a is in the correct directory.');
+                unlockPromises.push(
+                    fartSound.play().then(() => {
+                        fartSound.pause(); // Pause immediately to unlock without playing
+                        fartSound.currentTime = 0;
+                    }).catch(error => {
+                        console.error('Error unlocking main audio:', error);
+                    })
+                );
             }
+
+            soundPool.forEach(sound => {
+                unlockPromises.push(
+                    sound.play().then(() => {
+                        sound.pause(); // Pause immediately to unlock without playing
+                        sound.currentTime = 0;
+                    }).catch(error => {
+                        console.error('Error unlocking sound pool audio:', error);
+                    })
+                );
+            });
+
+            Promise.all(unlockPromises).then(() => {
+                isSoundEnabled = true;
+                console.log('Audio unlocked successfully');
+            }).catch(error => {
+                console.error('Error during audio unlocking process:', error);
+            });
         }
 
-        // Function to play fart sound
+        // Function to play fart sound with overlapping support
         function playFartSound() {
             if (!isSoundEnabled) {
                 console.log('Sound not yet enabled. Please interact with the game first.');
                 return;
             }
 
-            if (fartSound) {
-                fartSound.currentTime = 0; // Reset to start
-                fartSound.play().catch(error => {
-                    console.error('Error playing sound:', error);
-                });
-            } else {
-                console.error('Audio element not found. Cannot play sound.');
-            }
+            // Get the next sound from the pool
+            const sound = soundPool[soundIndex];
+            sound.currentTime = 0; // Reset to start
+            sound.play().catch(error => {
+                console.error('Error playing sound:', error);
+            });
+
+            // Cycle to the next sound in the pool
+            soundIndex = (soundIndex + 1) % MAX_SOUNDS;
         }
+
+        // Initialize sound pool on game start
+        initializeSoundPool();
 
         // Add global event listeners to unlock audio on first interaction
         document.addEventListener('click', unlockAudio, { once: true });
@@ -185,7 +219,7 @@
         
         // Handle click/touch to play sound and drop poop
         document.addEventListener("click", function(e) {
-            playFartSound(); // Play sound
+            playFartSound(); // Play sound on every click
             if (canDropPoop) {
                 dropPoop();
             }
@@ -195,7 +229,7 @@
             e.preventDefault();
             const touchX = e.touches[0].clientX;
             
-            playFartSound(); // Play sound
+            playFartSound(); // Play sound on every tap
             
             // Left side of screen moves bird left
             if (touchX < GAME_WIDTH / 2) {
