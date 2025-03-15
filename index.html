@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Cute Bird Poop Game</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-image: url('field.jpg');
+            background-size: cover;
+            background-position: center;
+            font-family: Arial, sans-serif;
+        }
+
+        #score {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 20px;
+            background: rgba(255,255,255,0.8);
+            padding: 5px 10px;
+            border-radius: 5px;
+            z-index: 10;
+        }
+
+        #bird {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            background: transparent;
+        }
+    </style>
+</head>
+<body>
+    <div id="score">Score: 0</div>
+    <img id="bird" src="Bird-A1.gif" alt="bird">
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const birdElement = document.getElementById("bird");
+        let birdX = canvas.width / 2 - 30;
+        let birdY = 30;
+        const birdSpeed = 8;
+        let score = 0;
+
+        let poops = [];
+        let people = [];
+        let keys = {};
+
+        document.addEventListener("keydown", e => keys[e.key] = true);
+        document.addEventListener("keyup", e => keys[e.key] = false);
+        document.addEventListener("click", dropPoop);
+
+        function moveBird() {
+            if (keys["ArrowLeft"] && birdX > 0) birdX -= birdSpeed;
+            if (keys["ArrowRight"] && birdX < canvas.width - 60) birdX += birdSpeed;
+
+            birdElement.style.left = birdX + "px";
+        }
+
+        function dropPoop() {
+            poops.push({ x: birdX + 30, y: birdY + 50 });
+        }
+
+        function movePoops() {
+            poops.forEach((poop, index) => {
+                poop.y += 8;
+                people.forEach((person, pIndex) => {
+                    if (poop.y > person.y && poop.x > person.x && poop.x < person.x + 50) {
+                        score++;
+                        document.getElementById("score").innerText = "Score: " + score;
+                        document.body.removeChild(person.element);
+                        people.splice(pIndex, 1);
+                        poops.splice(index, 1);
+                    }
+                });
+                if (poop.y > canvas.height) poops.splice(index, 1);
+            });
+        }
+
+        function spawnPeople() {
+            if (Math.random() < 0.02) {
+                const personImg = document.createElement('img');
+                personImg.src = 'man1.gif';
+                personImg.style.position = 'absolute';
+                personImg.style.bottom = '0px';
+                personImg.style.left = '-60px';
+                personImg.style.width = '50px';
+                personImg.style.height = '60px';
+                document.body.appendChild(personImg);
+
+                people.push({ x: -60, y: canvas.height - 60, element: personImg });
+            }
+        }
+
+        function movePeople() {
+            people.forEach((person, index) => {
+                person.x += 2;
+                person.element.style.left = person.x + 'px';
+                if (person.x > canvas.width) {
+                    document.body.removeChild(person.element);
+                    people.splice(index, 1);
+                }
+            });
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = "brown";
+            poops.forEach(poop => {
+                ctx.beginPath();
+                ctx.arc(poop.x, poop.y, 8, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        function gameLoop() {
+            moveBird();
+            movePoops();
+            spawnPeople();
+            movePeople();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        window.onload = () => {
+            birdElement.style.left = birdX + "px";
+            birdElement.style.top = birdY + "px";
+            gameLoop();
+        };
+    </script>
+</body>
+</html>
