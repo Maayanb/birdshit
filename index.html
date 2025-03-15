@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Cute Bird Poop Game</title>
-    <!-- Inline audio as a backup -->
-    <audio id="inlineAudio" preload="auto">
-        <source src="data:audio/mpeg;base64,//uQZAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAADAAACgACAgoKCgoKCgoKCgoKCgoKCgoKCvb29vb29vb29vb29vb29vb29vb3t7e3t7e3t7e3t7e3t7e3t7e3t////////////////////////////////////////AAAAAExhdmM1OC4xMwAAAAAAAAAAAAAAACQFAAAAAAAAAoCiQvFJFgAAAAAAAAAAAAAAAAD/+5DEAAAKnAN79BEAJQuA7380wklNJGNXw3TNGMDMGMTJ8CDJ8AJwgCUpEO0JOQDcIBjT//5PqCAdpQCVeMtGGEWpAEsT0+rAwAygiU4MoVSQdakBlJfrt/FqZB05lM3IFHZnhxNxP2M7gMSAkTSkYzNUuwYDJCLhIECXOCGE4+aaDAkpygnCgZaAYFjVQlRgiEzigMgxQMFxUAQYUAoEpgQQWHDRJwZ8GNKQ5AiQTG6QAACCnSYLRgw0Fg3G3RpsmDBq8eDDgw6AOjGIZ4DLQzcg88MvFDJBBUIBMEASoKaZOTv+lAgRJDLBM/pDmRg21SOLdIw9MMBIUZTikxQRJzP0QSUzGFMzMWYLJGaSpmdMaUZmYGRmSOxmYIDDQOmCYEGZnKFRuZcw8YmKmomJvyLT+UG1EzMzcxqTHLXgUzdDEOLUL2lv3/3rct+XNlKL5c4YsyLXAUDJ9XJdrX3P3g8Ey6Vd+RJDlDmTSCPeZOo3YK/+r+T5d99NLnQozLu7yUfylJ2JhQdoVXwWzZFbYnNSlzmrszHT61nzOrJYfNfA8X////+35///+//6vQ59KtSP9Ly/////3k9RS8f/+/Jz5eqtkZVT0TqFP9PV9NSE9PSH1aSRm3FYmU3OwqlOoqW3FP/////////quj///6/6alXUa7///9SSd3fzPUMud/L////88vnUjP/+OIQzldpAeWKECBAgQoWAF0/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////+5DEXwvLkgNo9PeALAAANIAAAAT////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="/>
+    <!-- Inline fart sound directly in the HTML to guarantee availability -->
+    <audio id="fartSound" preload="auto">
+        <source src="fart.mp3" type="audio/mpeg">
     </audio>
     <style>
         body {
@@ -189,8 +189,10 @@
         
         // Make sound play on any click/touch, regardless of poop
         document.addEventListener("click", function(e) {
-            playFartSound();
-            dropPoop();
+            playFartSound(); // Always play sound on click
+            if (canDropPoop) { // Only drop poop if allowed
+                dropPoop();
+            }
         });
         
         document.addEventListener("touchstart", function(e) {
@@ -213,8 +215,10 @@
             
             birdElement.style.left = birdX + "px";
             
-            // Drop poop on touch
-            dropPoop();
+            // Only drop poop if allowed
+            if (canDropPoop) {
+                dropPoop();
+            }
         });
 
         function moveBird() {
@@ -224,71 +228,47 @@
             birdElement.style.left = birdX + "px";
         }
 
-        // Sound system that allows multiple overlapping sounds
-        const MAX_SOUNDS = 10; // Maximum number of simultaneous sounds
+        // Sound system that plays a short fart sound
+        const fartSound = document.getElementById('fartSound');
+        
+        // Create a simple but effective backup sound system
+        const MAX_SOUNDS = 3; // Limit to 3 sounds max
         const soundPool = [];
         
-        // Create a pool of audio elements for overlapping sounds
+        // Create a small pool of audio elements as backup
         for (let i = 0; i < MAX_SOUNDS; i++) {
-            const sound = document.createElement('audio');
-            sound.src = 'fart.mp3'; // Your short fart sound file
-            sound.preload = 'auto';
-            sound.volume = 0.7; // Slightly reduced volume to prevent distortion when overlapping
-            sound.dataset.available = "true"; // Mark as available
-            document.body.appendChild(sound);
+            const sound = new Audio();
+            sound.src = 'fart.mp3';
+            sound.volume = 0.8;
             soundPool.push(sound);
         }
         
-        // Add inline base64 audio as fallback
-        const inlineAudio = document.getElementById('inlineAudio');
+        let soundIndex = 0; // Keep track of which sound to use next
         
-        // Play sound function that allows overlapping
+        // Simple function to play the fart sound
         function playFartSound() {
-            // Find an available sound from the pool
-            const availableSound = soundPool.find(sound => sound.dataset.available === "true");
-            
-            if (availableSound) {
-                // Mark as in use
-                availableSound.dataset.available = "false";
-                
-                // Reset and play
-                availableSound.currentTime = 0;
-                
-                // Play the sound
-                const playPromise = availableSound.play();
-                
-                if (playPromise !== undefined) {
-                    playPromise.then(() => {
-                        // Mark as available again when done
-                        setTimeout(() => {
-                            availableSound.dataset.available = "true";
-                        }, 100); // Short timeout to prevent immediate reuse
-                    }).catch(error => {
-                        console.log("Error playing sound:", error);
-                        availableSound.dataset.available = "true"; // Mark as available if failed
-                        
-                        // Try inline audio as fallback
-                        if (inlineAudio) {
-                            inlineAudio.currentTime = 0;
-                            inlineAudio.play().catch(e => console.log("Inline audio failed too:", e));
-                        }
-                    });
-                }
-            } else {
-                // If no available sounds, try to create a new one on the fly
-                const newSound = document.createElement('audio');
-                newSound.src = 'fart.mp3';
-                newSound.volume = 0.7;
-                document.body.appendChild(newSound);
-                newSound.play().catch(e => {
-                    console.log("New sound failed:", e);
+            // Try the main sound element first
+            if (fartSound) {
+                fartSound.currentTime = 0;
+                fartSound.play().catch(err => {
+                    console.log("Main sound failed, using backup");
                     
-                    // Try inline as last resort
-                    if (inlineAudio) {
-                        inlineAudio.currentTime = 0;
-                        inlineAudio.play().catch(e => console.log("All sound options failed"));
-                    }
+                    // If that fails, use the backup sound pool
+                    const backupSound = soundPool[soundIndex];
+                    backupSound.currentTime = 0;
+                    backupSound.play().catch(e => console.log("Backup sound failed too"));
+                    
+                    // Rotate through the sound pool
+                    soundIndex = (soundIndex + 1) % MAX_SOUNDS;
                 });
+            } else {
+                // If main sound isn't available, just use the pool
+                const backupSound = soundPool[soundIndex];
+                backupSound.currentTime = 0;
+                backupSound.play().catch(e => console.log("Sound failed"));
+                
+                // Rotate through the sound pool
+                soundIndex = (soundIndex + 1) % MAX_SOUNDS;
             }
         }
 
@@ -298,13 +278,17 @@
             const birdCenterX = birdRect.left + (birdRect.width / 2);
             const birdBottomY = birdRect.bottom;
             
-            // Add a new poop regardless of whether there are other poops
+            // Add a new poop
             poops.push({ 
                 x: birdCenterX, 
                 y: birdBottomY 
             });
             
-            // No longer limiting to one poop at a time
+            // Prevent rapid poop dropping (limit the rate)
+            canDropPoop = false;
+            setTimeout(() => {
+                canDropPoop = true;
+            }, 500); // Wait half a second before allowing another poop
         }
 
         function movePoops() {
@@ -449,20 +433,18 @@
             soundButton.style.cursor = "pointer";
             
             soundButton.onclick = function() {
-                // Try to unlock all sound mechanisms
-                // Play one sound immediately to show it's working
+                // Play sound to show it's working
                 playFartSound();
                 
-                // Unlock all audio elements in the pool
+                // For iOS, we need to directly interact with the audio elements
+                if (fartSound) {
+                    fartSound.play().then(() => fartSound.pause()).catch(e => console.log(e));
+                }
+                
+                // Try all backup sounds too
                 soundPool.forEach(sound => {
-                    sound.load();
                     sound.play().then(() => sound.pause()).catch(e => console.log(e));
                 });
-                
-                // Also try the inline audio
-                if (inlineAudio) {
-                    inlineAudio.play().then(() => inlineAudio.pause()).catch(e => console.log(e));
-                }
                 
                 // Remove button after enabling
                 this.remove();
@@ -470,24 +452,13 @@
             
             gameContainer.appendChild(soundButton);
             
-            // Try to unlock audio on any user interaction
-            const unlockAudio = function() {
-                console.log("Attempting to unlock audio...");
-                
-                // Try to unlock the first sound in the pool
-                if (soundPool.length > 0) {
-                    soundPool[0].load();
-                    soundPool[0].play().then(() => soundPool[0].pause()).catch(e => console.log(e));
+            // Mobile fix - try to preload the sound on first touch
+            document.addEventListener('touchstart', function() {
+                if (fartSound) {
+                    fartSound.load();
+                    fartSound.play().then(() => fartSound.pause()).catch(e => {});
                 }
-                
-                // Try inline audio too
-                if (inlineAudio) {
-                    inlineAudio.play().then(() => inlineAudio.pause()).catch(e => console.log(e));
-                }
-            };
-            
-            document.addEventListener('touchstart', unlockAudio, { once: true });
-            document.addEventListener('click', unlockAudio, { once: true });
+            }, { once: true });
             
             gameLoop();
         }
