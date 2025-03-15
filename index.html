@@ -264,27 +264,19 @@
             if (elecY < -50) elecY = -50; // Adjusted to match thinner height
             elecElement.style.bottom = (GAME_HEIGHT - elecY) + "px";
             
-            // Use internal game coordinates for collision
-            const birdCenterX = birdX + 30; // Bird width/2
-            const birdCenterY = birdY + 30; // Bird height/2
-            const elecCenterX = GAME_WIDTH / 2; // elec spans full width, center is screen middle
-            const elecCenterY = elecY + 25; // elec height/2 (50px / 2)
+            // Check vertical overlap between bird and elec
+            const birdTop = birdY;
+            const birdBottom = birdY + 60; // Bird height
+            const elecTop = elecY;
+            const elecBottom = elecY + 50; // Elec height
 
-            // Distance threshold for "middle" collision (40px, increased for reliability)
-            const distance = Math.sqrt(
-                Math.pow(birdCenterX - elecCenterX, 2) + 
-                Math.pow(birdCenterY - elecCenterY, 2)
-            );
-
-            // Debug logging to verify collision detection
-            if (distance < 100) { // Log when close to help diagnose
-                console.log(`Distance: ${distance.toFixed(2)}, birdCenter: (${birdCenterX}, ${birdCenterY}), elecCenter: (${elecCenterX}, ${elecCenterY})`);
-            }
-
-            if (distance < 40) { // Increased threshold slightly for better consistency
+            // Debug logging to verify positions
+            if (elecBottom > birdTop && elecTop < birdBottom) {
+                console.log(`Collision detected! birdY: ${birdY}, elecY: ${elecY}`);
                 gameOver = true;
                 gameOverElement.style.display = "block";
-                console.log("Game Over triggered!");
+            } else if (elecBottom > birdTop - 50) { // Log when close
+                console.log(`Near miss - birdTop: ${birdTop}, birdBottom: ${birdBottom}, elecTop: ${elecTop}, elecBottom: ${elecBottom}`);
             }
         }
 
