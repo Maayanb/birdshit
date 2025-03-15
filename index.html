@@ -9,77 +9,467 @@
         <source src="fart.m4a" type="audio/mp4">
         Your browser does not support the audio element.
     </audio>
-    <!-- Rest of your head section remains unchanged -->
-</head>
-<body ontouchstart="">
-    <!-- Rest of your body section remains unchanged -->
-
-    <script>
-        // Prevent double-tap zoom, etc. (unchanged)
-        // ... (previous script code remains unchanged)
-
-        // Improved Sound System
-        const fartSound = document.getElementById('fartSound');
-        const MAX_SOUNDS = 3; // Limit to 3 sounds in pool
-        const soundPool = [];
-        let isSoundEnabled = false; // Track if sound is unlocked
-
-        // Initialize sound pool
-        function initializeSoundPool() {
-            for (let i = 0; i < MAX_SOUNDS; i++) {
-                const sound = new Audio('fart.m4a'); // Updated to .m4a
-                sound.preload = 'auto'; // Ensure preloading
-                sound.volume = 0.8;
-                soundPool.push(sound);
-            }
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+            height: 100vh;
+            width: 100vw;
+            touch-action: manipulation; /* Prevents pinch zooming */
         }
 
-        // Unlock audio for mobile devices (iOS fix) - unchanged
+        #game-container {
+            position: fixed; /* Fixed position instead of relative */
+            width: 100%;
+            height: 100%;
+            background-image: url('field.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-color: lightblue; /* Fallback color */
+        }
+
+        #score {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 20px;
+            background: rgba(255,255,255,0.8);
+            padding: 5px 10px;
+            border-radius: 5px;
+            z-index: 10;
+        }
+
+        #bird {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            top: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        canvas {
+            position: fixed; /* Fixed position to prevent movement */
+            top: 0;
+            left: 0;
+            background: transparent;
+            width: 100%;
+            height: 100%;
+            z-index: 4;
+        }
+        
+        .person {
+            position: absolute;
+            bottom: 150px; /* Even higher position to ensure visibility */
+            width: 50px;
+            height: 60px;
+            z-index: 3;
+        }
+
+        /* Disable all text selection to prevent zoom issues */
+        * {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+    </style>
+</head>
+<body ontouchstart="">
+    <div id="game-container">
+        <div id="score">Score: 0</div>
+        <img id="bird" src="Bird-A1.gif" alt="bird">
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <script>
+        // Prevent double-tap zoom
+        document.addEventListener('dblclick', function(e) {
+            e.preventDefault();
+        });
+        
+        // Prevent pinch zooming
+        document.addEventListener('touchmove', function(e) {
+            if (e.touches.length > 1) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+
+        // Set up responsive canvas with fixed height
+        const gameContainer = document.getElementById("game-container");
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        
+        // Set a fixed game height and width based on viewport
+        const GAME_HEIGHT = window.innerHeight;
+        const GAME_WIDTH = window.innerWidth;
+        
+        // Function to handle responsive sizing without changing dimensions after init
+        function resizeGame() {
+            canvas.width = GAME_WIDTH;
+            canvas.height = GAME_HEIGHT;
+        }
+        
+        // Call resize only once at start
+        resizeGame();
+
+        const birdElement = document.getElementById("bird");
+        let birdX = GAME_WIDTH / 2 - 30;
+        let birdY = 30;
+        const birdSpeed = 8;
+        let score = 0;
+
+        let poops = [];
+        let people = [];
+        let keys = {};
+        let canDropPoop = true;
+        let gameTime = 0;
+        let spawnRate = 0.01;
+
+        // Simplified Sound System
+        const fartSound = document.getElementById('fartSound');
+        let isSoundEnabled = false; // Track if sound is unlocked
+
+        // Function to unlock audio (required for mobile devices)
         function unlockAudio() {
             if (isSoundEnabled) return; // Already unlocked
 
-            const unlockPromises = [];
             if (fartSound) {
-                unlockPromises.push(
-                    fartSound.play().then(() => {
-                        fartSound.pause();
-                        fartSound.currentTime = 0;
-                    }).catch(e => console.log('Main audio unlock failed:', e))
-                );
+                fartSound.play().then(() => {
+                    fartSound.pause(); // Pause immediately to unlock without playing
+                    fartSound.currentTime = 0;
+                    isSoundEnabled = true;
+                    console.log('Audio unlocked successfully');
+                }).catch(error => {
+                    console.error('Error unlocking audio:', error);
+                });
+            } else {
+                console.error('Audio element not found. Ensure fart.m4a is in the correct directory.');
             }
-
-            soundPool.forEach(sound => {
-                unlockPromises.push(
-                    sound.play().then(() => {
-                        sound.pause();
-                        sound.currentTime = 0;
-                    }).catch(e => console.log('Backup audio unlock failed:', e))
-                );
-            });
-
-            Promise.all(unlockPromises).then(() => {
-                isSoundEnabled = true;
-                console.log('Audio unlocked successfully');
-            });
         }
 
-        // Play fart sound using sound pool - unchanged
+        // Function to play fart sound
         function playFartSound() {
             if (!isSoundEnabled) {
                 console.log('Sound not yet enabled. Please interact with the game first.');
                 return;
             }
 
-            const sound = soundPool.shift(); // Take first sound from pool
-            sound.currentTime = 0;
-            sound.play().catch(e => {
-                console.error('Sound playback failed:', e);
-            });
-            soundPool.push(sound); // Put it back at the end of the pool
+            if (fartSound) {
+                fartSound.currentTime = 0; // Reset to start
+                fartSound.play().catch(error => {
+                    console.error('Error playing sound:', error);
+                });
+            } else {
+                console.error('Audio element not found. Cannot play sound.');
+            }
         }
 
-        // Rest of your script remains unchanged
-        // ... (rest of the script code)
+        // Add global event listeners to unlock audio on first interaction
+        document.addEventListener('click', unlockAudio, { once: true });
+        document.addEventListener('touchstart', function(e) {
+            e.preventDefault();
+            unlockAudio();
+        }, { once: true });
+
+        // Add touch control for mobile
+        document.addEventListener("keydown", e => keys[e.key] = true);
+        document.addEventListener("keyup", e => keys[e.key] = false);
+        
+        // Handle click/touch to play sound and drop poop
+        document.addEventListener("click", function(e) {
+            playFartSound(); // Play sound
+            if (canDropPoop) {
+                dropPoop();
+            }
+        });
+        
+        document.addEventListener("touchstart", function(e) {
+            e.preventDefault();
+            const touchX = e.touches[0].clientX;
+            
+            playFartSound(); // Play sound
+            
+            // Left side of screen moves bird left
+            if (touchX < GAME_WIDTH / 2) {
+                birdX -= birdSpeed * 2;
+                if (birdX < 0) birdX = 0;
+            } 
+            // Right side moves bird right
+            else {
+                birdX += birdSpeed * 2;
+                if (birdX > GAME_WIDTH - 60) birdX = GAME_WIDTH - 60;
+            }
+            
+            birdElement.style.left = birdX + "px";
+            
+            if (canDropPoop) {
+                dropPoop();
+            }
+        });
+
+        function moveBird() {
+            if (keys["ArrowLeft"] && birdX > 0) birdX -= birdSpeed;
+            if (keys["ArrowRight"] && birdX < GAME_WIDTH - 60) birdX += birdSpeed;
+
+            birdX = Math.max(0, Math.min(birdX, GAME_WIDTH - 60));
+            birdElement.style.left = birdX + "px";
+        }
+
+        function dropPoop() {
+            const birdRect = birdElement.getBoundingClientRect();
+            const birdCenterX = birdRect.left + (birdRect.width / 2);
+            const birdBottomY = birdRect.bottom;
+            
+            poops.push({ 
+                x: birdCenterX, 
+                y: birdBottomY 
+            });
+            
+            canDropPoop = false;
+            setTimeout(() => {
+                canDropPoop = true;
+            }, 500);
+        }
+
+        function movePoops() {
+            for (let i = poops.length - 1; i >= 0; i--) {
+                poops[i].y += 10;
+                
+                let hitSomeone = false;
+                
+                for (let j = people.length - 1; j >= 0; j--) {
+                    if (poops[i] && people[j] && 
+                        poops[i].y > people[j].y && 
+                        poops[i].y < people[j].y + 60 &&
+                        poops[i].x > people[j].x && 
+                        poops[i].x < people[j].x + 50) {
+                        
+                        score++;
+                        if (people[j].element && people[j].element.parentNode) {
+                            try {
+                                gameContainer.removeChild(people[j].element);
+                            } catch (e) {
+                                console.log("Error removing hit person:", e);
+                            }
+                        }
+                        people.splice(j, 1);
+                        hitSomeone = true;
+                        break;
+                    }
+                }
+                
+                if (hitSomeone || poops[i].y > GAME_HEIGHT) {
+                    poops.splice(i, 1);
+                }
+            }
+            
+            if (poops.length > 20) {
+                poops.splice(0, poops.length - 20);
+            }
+        }
+
+        function spawnPeople() {
+            spawnRate = Math.min(0.04, 0.01 + (gameTime / 8000) * 0.03);
+            const maxPeople = 4 + Math.floor(gameTime / 12000);
+            
+            if (people.length < maxPeople && gameTime > 1000) {
+                if (Math.random() < spawnRate) {
+                    try {
+                        const personLeft = document.createElement('img');
+                        personLeft.src = 'man1.gif';
+                        personLeft.className = 'person';
+                        personLeft.style.left = '-60px';
+                        gameContainer.appendChild(personLeft);
+        
+                        people.push({ 
+                            x: -60, 
+                            y: GAME_HEIGHT - 210,
+                            speed: 2 + Math.random(),
+                            element: personLeft,
+                            timestamp: gameTime
+                        });
+                    } catch (e) {
+                        console.log("Error spawning left person:", e);
+                    }
+                }
+    
+                if (Math.random() < spawnRate) {
+                    try {
+                        const personRight = document.createElement('img');
+                        personRight.src = 'man3.gif';
+                        personRight.className = 'person';
+                        personRight.style.left = GAME_WIDTH + 'px';
+                        gameContainer.appendChild(personRight);
+        
+                        people.push({ 
+                            x: GAME_WIDTH, 
+                            y: GAME_HEIGHT - 210,
+                            speed: -(2 + Math.random()),
+                            element: personRight,
+                            timestamp: gameTime
+                        });
+                    } catch (e) {
+                        console.log("Error spawning right person:", e);
+                    }
+                }
+            }
+        }
+
+        function movePeople() {
+            for (let i = people.length - 1; i >= 0; i--) {
+                people[i].x += people[i].speed;
+                if (people[i].element) {
+                    people[i].element.style.left = people[i].x + 'px';
+                }
+                
+                if (people[i].x > GAME_WIDTH + 50 || people[i].x < -100) {
+                    if (people[i].element && people[i].element.parentNode) {
+                        try {
+                            gameContainer.removeChild(people[i].element);
+                        } catch (e) {
+                            console.log("Error removing person:", e);
+                        }
+                    }
+                    people.splice(i, 1);
+                }
+            }
+            
+            if (gameTime % 1000 === 0) {
+                cleanupStuckPeople();
+            }
+        }
+        
+        function cleanupStuckPeople() {
+            const currentTime = gameTime;
+            const timeLimit = 30000;
+            
+            for (let i = people.length - 1; i >= 0; i--) {
+                if (!people[i].timestamp) {
+                    people[i].timestamp = currentTime;
+                }
+                
+                if ((currentTime - people[i].timestamp) > timeLimit) {
+                    if (people[i].element && people[i].element.parentNode) {
+                        try {
+                            gameContainer.removeChild(people[i].element);
+                        } catch (e) {
+                            console.log("Error removing stuck person:", e);
+                        }
+                    }
+                    people.splice(i, 1);
+                }
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+            poops.forEach(poop => {
+                ctx.fillStyle = "#613b12";
+                ctx.beginPath();
+                ctx.arc(poop.x, poop.y, 10, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.fillStyle = "#4d2e0c";
+                ctx.beginPath();
+                ctx.arc(poop.x - 3, poop.y - 2, 3, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        function restartGame() {
+            for (let i = people.length - 1; i >= 0; i--) {
+                if (people[i].element && people[i].element.parentNode) {
+                    try {
+                        gameContainer.removeChild(people[i].element);
+                    } catch (e) {
+                        console.log("Error removing person during restart:", e);
+                    }
+                }
+            }
+            
+            people = [];
+            poops = [];
+            score = 0;
+            gameTime = 0;
+            canDropPoop = true;
+            
+            birdX = GAME_WIDTH / 2 - 30;
+            birdElement.style.left = birdX + "px";
+        }
+        
+        function addRestartButton() {
+            const restartButton = document.createElement('button');
+            restartButton.innerText = "🔄 Restart";
+            restartButton.style.position = "absolute";
+            restartButton.style.bottom = "10px";
+            restartButton.style.right = "10px";
+            restartButton.style.zIndex = "100";
+            restartButton.style.padding = "8px";
+            restartButton.style.backgroundColor = "rgba(255,255,255,0.8)";
+            restartButton.style.border = "none";
+            restartButton.style.borderRadius = "5px";
+            restartButton.style.cursor = "pointer";
+            
+            restartButton.onclick = function() {
+                restartGame();
+            };
+            
+            gameContainer.appendChild(restartButton);
+        }
+
+        function gameLoop() {
+            gameTime += 16;
+            
+            try {
+                moveBird();
+                movePoops();
+                movePeople();
+                spawnPeople();
+                draw();
+                
+                const scoreDiv = document.getElementById("score");
+                const difficultyLevel = Math.floor(gameTime / 10000) + 1;
+                scoreDiv.innerText = `Score: ${score} | Level: ${difficultyLevel}`;
+                
+                if (gameTime % 5000 === 0) {
+                    console.log(`Game state: ${people.length} people, ${poops.length} poops`);
+                    cleanupStuckPeople();
+                }
+                
+                requestAnimationFrame(gameLoop);
+            } catch (e) {
+                console.log("Error in game loop:", e);
+                cleanupStuckPeople();
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        // Initialize the game
+        function initGame() {
+            birdElement.style.left = birdX + "px";
+            birdElement.style.top = birdY + "px";
+            
+            // Add restart button
+            addRestartButton();
+            
+            gameLoop();
+        }
+
+        // Start game when window loads
+        window.onload = initGame;
+
+        if (document.readyState === "complete") {
+            initGame();
+        }
     </script>
 </body>
 </html>
