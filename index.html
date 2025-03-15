@@ -2,16 +2,27 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Cute Bird Poop Game</title>
     <style>
         body {
             margin: 0;
+            padding: 0;
             overflow: hidden;
+            font-family: Arial, sans-serif;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
             background-image: url('field.jpg');
             background-size: cover;
             background-position: center;
-            background-color: lightblue; /* Fallback color if image doesn't load */
-            font-family: Arial, sans-serif;
+            background-repeat: no-repeat;
+            background-color: lightblue; /* Fallback color */
         }
 
         #score {
@@ -41,6 +52,8 @@
             top: 0;
             left: 0;
             background: transparent;
+            width: 100%;
+            height: 100%;
         }
         
         .person {
@@ -52,15 +65,27 @@
     </style>
 </head>
 <body>
-    <div id="score">Score: 0</div>
-    <img id="bird" src="Bird-A1.gif" alt="bird">
-    <canvas id="gameCanvas"></canvas>
+    <div id="game-container">
+        <div id="score">Score: 0</div>
+        <img id="bird" src="Bird-A1.gif" alt="bird">
+        <canvas id="gameCanvas"></canvas>
+    </div>
 
     <script>
+        // Set up responsive canvas
+        const gameContainer = document.getElementById("game-container");
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        
+        // Function to handle responsive sizing
+        function resizeGame() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        
+        // Call resize on load and when window size changes
+        window.addEventListener('resize', resizeGame);
+        resizeGame();
 
         const birdElement = document.getElementById("bird");
         let birdX = canvas.width / 2 - 30;
@@ -72,9 +97,33 @@
         let people = [];
         let keys = {};
 
+        // Add touch control for mobile
         document.addEventListener("keydown", e => keys[e.key] = true);
         document.addEventListener("keyup", e => keys[e.key] = false);
         document.addEventListener("click", dropPoop);
+        document.addEventListener("touchstart", handleTouch);
+        
+        // Handle mobile touch events
+        function handleTouch(e) {
+            e.preventDefault();
+            const touchX = e.touches[0].clientX;
+            
+            // Left side of screen moves bird left
+            if (touchX < window.innerWidth / 2) {
+                birdX -= birdSpeed * 2;
+                if (birdX < 0) birdX = 0;
+            } 
+            // Right side moves bird right
+            else {
+                birdX += birdSpeed * 2;
+                if (birdX > canvas.width - 60) birdX = canvas.width - 60;
+            }
+            
+            birdElement.style.left = birdX + "px";
+            
+            // Drop poop on touch
+            dropPoop();
+        }
 
         function moveBird() {
             if (keys["ArrowLeft"] && birdX > 0) birdX -= birdSpeed;
@@ -101,7 +150,7 @@
                         document.getElementById("score").innerText = "Score: " + score;
                         
                         if (people[j].element && people[j].element.parentNode) {
-                            document.body.removeChild(people[j].element);
+                            gameContainer.removeChild(people[j].element);
                         }
                         
                         people.splice(j, 1);
@@ -122,7 +171,7 @@
                 personLeft.src = 'man1.gif';
                 personLeft.className = 'person';
                 personLeft.style.left = '-60px';
-                document.body.appendChild(personLeft);
+                gameContainer.appendChild(personLeft);
 
                 people.push({ 
                     x: -60, 
@@ -137,7 +186,7 @@
                 personRight.src = 'man3.gif';
                 personRight.className = 'person';
                 personRight.style.left = canvas.width + 'px';
-                document.body.appendChild(personRight);
+                gameContainer.appendChild(personRight);
 
                 people.push({ 
                     x: canvas.width, 
@@ -155,7 +204,7 @@
                 
                 if (people[i].x > canvas.width || people[i].x < -60) {
                     if (people[i].element && people[i].element.parentNode) {
-                        document.body.removeChild(people[i].element);
+                        gameContainer.removeChild(people[i].element);
                     }
                     people.splice(i, 1);
                 }
@@ -183,17 +232,20 @@
             requestAnimationFrame(gameLoop);
         }
 
-        window.onload = () => {
+        // Initialize the game
+        function initGame() {
+            resizeGame(); // Make sure canvas is properly sized
             birdElement.style.left = birdX + "px";
             birdElement.style.top = birdY + "px";
             gameLoop();
-        };
+        }
 
-        // Initialize the game immediately if the window is already loaded
+        // Start game when window loads
+        window.onload = initGame;
+
+        // Also initialize if document is already complete
         if (document.readyState === "complete") {
-            birdElement.style.left = birdX + "px";
-            birdElement.style.top = birdY + "px";
-            gameLoop();
+            initGame();
         }
     </script>
 </body>
