@@ -58,7 +58,7 @@
         
         .person {
             position: absolute;
-            bottom: 0px;
+            bottom: 60px; /* Raised position so they're visible on mobile */
             width: 50px;
             height: 60px;
         }
@@ -96,6 +96,17 @@
         let poops = [];
         let people = [];
         let keys = {};
+        let canDropPoop = true;
+        let gameTime = 0;
+        let spawnRate = 0.005; // Starting spawn rate - will increase over time
+        
+        // Load the fart sound
+        const fartSound = new Audio();
+        fartSound.src = 'fart.mp3'; // Make sure to have this file in your project
+        // Fallback in case the file doesn't exist
+        fartSound.onerror = function() {
+            console.log("Fart sound could not be loaded");
+        };
 
         // Add touch control for mobile
         document.addEventListener("keydown", e => keys[e.key] = true);
@@ -133,7 +144,24 @@
         }
 
         function dropPoop() {
-            poops.push({ x: birdX + 30, y: birdY + 50 });
+            // Only allow one poop at a time
+            if (canDropPoop && poops.length === 0) {
+                poops.push({ x: birdX + 30, y: birdY + 50 });
+                
+                // Play fart sound
+                try {
+                    fartSound.currentTime = 0; // Reset sound to beginning
+                    fartSound.play().catch(e => console.log("Sound play error:", e));
+                } catch (e) {
+                    console.log("Error playing sound:", e);
+                }
+                
+                // Prevent rapid poop dropping
+                canDropPoop = false;
+                setTimeout(() => {
+                    canDropPoop = true;
+                }, 500); // Wait half a second before allowing another poop
+            }
         }
 
         function movePoops() {
@@ -166,34 +194,46 @@
         }
 
         function spawnPeople() {
-            if (Math.random() < 0.015) {
-                const personLeft = document.createElement('img');
-                personLeft.src = 'man1.gif';
-                personLeft.className = 'person';
-                personLeft.style.left = '-60px';
-                gameContainer.appendChild(personLeft);
-
-                people.push({ 
-                    x: -60, 
-                    y: canvas.height - 60, 
-                    speed: 2, 
-                    element: personLeft 
-                });
-            }
-
-            if (Math.random() < 0.015) {
-                const personRight = document.createElement('img');
-                personRight.src = 'man3.gif';
-                personRight.className = 'person';
-                personRight.style.left = canvas.width + 'px';
-                gameContainer.appendChild(personRight);
-
-                people.push({ 
-                    x: canvas.width, 
-                    y: canvas.height - 60, 
-                    speed: -2, 
-                    element: personRight 
-                });
+            // Gradually increase spawn rate as game progresses
+            // But limit to reasonable maximum
+            spawnRate = Math.min(0.03, 0.005 + (gameTime / 10000) * 0.025);
+            
+            // Limit the maximum number of people on screen
+            const maxPeople = 5 + Math.floor(gameTime / 15000); // Add more max people over time
+            
+            // Only spawn if we're under the people limit
+            if (people.length < maxPeople) {
+                // Left side people
+                if (Math.random() < spawnRate) {
+                    const personLeft = document.createElement('img');
+                    personLeft.src = 'man1.gif';
+                    personLeft.className = 'person';
+                    personLeft.style.left = '-60px';
+                    gameContainer.appendChild(personLeft);
+    
+                    people.push({ 
+                        x: -60, 
+                        y: canvas.height - 120, // Raised position
+                        speed: 2 + Math.random(), // Slightly randomized speed
+                        element: personLeft 
+                    });
+                }
+    
+                // Right side people
+                if (Math.random() < spawnRate) {
+                    const personRight = document.createElement('img');
+                    personRight.src = 'man3.gif';
+                    personRight.className = 'person';
+                    personRight.style.left = canvas.width + 'px';
+                    gameContainer.appendChild(personRight);
+    
+                    people.push({ 
+                        x: canvas.width, 
+                        y: canvas.height - 120, // Raised position
+                        speed: -(2 + Math.random()), // Slightly randomized speed
+                        element: personRight 
+                    });
+                }
             }
         }
 
@@ -224,11 +264,20 @@
         }
 
         function gameLoop() {
+            // Increment game time (in milliseconds)
+            gameTime += 16; // Approximately 60fps
+            
             moveBird();
             movePoops();
             movePeople();
             spawnPeople();
             draw();
+            
+            // Display game info in score element
+            const scoreDiv = document.getElementById("score");
+            const difficultyLevel = Math.floor(gameTime / 10000) + 1;
+            scoreDiv.innerText = `Score: ${score} | Level: ${difficultyLevel}`;
+            
             requestAnimationFrame(gameLoop);
         }
 
