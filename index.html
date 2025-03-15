@@ -7,6 +7,9 @@
         body {
             margin: 0;
             overflow: hidden;
+            background-image: url('field.jpg');
+            background-size: cover;
+            background-position: center;
             background-color: lightblue; /* Fallback color if image doesn't load */
             font-family: Arial, sans-serif;
         }
@@ -50,7 +53,7 @@
 </head>
 <body>
     <div id="score">Score: 0</div>
-    <img id="bird" src="/api/placeholder/60/60" alt="bird">
+    <img id="bird" src="Bird-A1.gif" alt="bird">
     <canvas id="gameCanvas"></canvas>
 
     <script>
@@ -116,7 +119,7 @@
         function spawnPeople() {
             if (Math.random() < 0.015) {
                 const personLeft = document.createElement('img');
-                personLeft.src = '/api/placeholder/50/60';
+                personLeft.src = 'man1.gif';
                 personLeft.className = 'person';
                 personLeft.style.left = '-60px';
                 document.body.appendChild(personLeft);
@@ -131,7 +134,7 @@
 
             if (Math.random() < 0.015) {
                 const personRight = document.createElement('img');
-                personRight.src = '/api/placeholder/50/60';
+                personRight.src = 'man3.gif';
                 personRight.className = 'person';
                 personRight.style.left = canvas.width + 'px';
                 document.body.appendChild(personRight);
